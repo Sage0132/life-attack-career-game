@@ -1,0 +1,65 @@
+﻿<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>人生特攻隊：生涯卡任務</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=cardfix3" />
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-block"><span class="kicker">MISSION 86</span><h1>人生特攻隊</h1></div>
+      <div class="mission-meta">
+        <label class="field-chip"><span>隊員</span><input id="studentName" type="text" placeholder="輸入姓名" autocomplete="off" /></label>
+        <span id="todayText" class="date-chip"></span>
+      </div>
+    </header>
+    <nav class="stage-nav" aria-label="任務階段">
+      <button class="stage-pill active" data-stage-pill="1">01 生涯對決</button>
+      <button class="stage-pill" data-stage-pill="2">02 職業快篩</button>
+      <button class="stage-pill" data-stage-pill="3">03 特攻報告</button>
+    </nav>
+    <main>
+      <section id="stage1" class="stage active" aria-labelledby="stage1Title">
+        <div class="arena-head"><div><span class="section-label">LEVEL 01</span><h2 id="stage1Title">迷因二選一</h2></div><div class="progress-box"><span id="quizCount">1/10</span><div class="progress-track"><div id="quizProgress" class="progress-fill"></div></div></div></div>
+        <div class="duel-grid" id="duelGrid"></div>
+      </section>
+      <section id="reveal" class="stage reveal-stage" aria-labelledby="revealTitle">
+        <div class="reveal-panel"><span class="section-label">ATTRIBUTE UNLOCKED</span><h2 id="revealTitle">特攻屬性揭曉</h2><p id="titleResult" class="result-title"></p><div id="attributeBars" class="attribute-bars"></div><button id="startSwipe" class="primary-action">進入職業快篩</button></div>
+      </section>
+      <section id="stage2" class="stage" aria-labelledby="stage2Title">
+        <div class="arena-head compact-head"><div><span class="section-label">LEVEL 02</span><h2 id="stage2Title">職業卡快篩</h2></div><div class="swipe-stats"><span id="jobCursor">1/86</span><span><b id="likedCount">0</b> 張已收藏</span></div></div>
+        <div class="swipe-zone"><button id="rejectBtn" class="round-command reject" aria-label="絕對不要">×</button><article id="jobCard" class="job-card" tabindex="0"></article><button id="likeBtn" class="round-command like" aria-label="好像滿酷">♥</button></div>
+        <div class="swipe-copy"><button id="finishSwipe" class="secondary-action">完成快篩，挑前三名</button></div>
+      </section>
+      <section id="stage3" class="stage" aria-labelledby="stage3Title">
+        <div class="arena-head"><div><span class="section-label">LEVEL 03</span><h2 id="stage3Title">前三志願與技能樹</h2></div><button id="buildReport" class="primary-action small">生成特攻履歷</button></div>
+        <div class="rank-board" id="rankBoard"><div class="rank-slot" data-rank="0"><span>第 1 志願</span><strong>等待選擇</strong></div><div class="rank-slot" data-rank="1"><span>第 2 志願</span><strong>等待選擇</strong></div><div class="rank-slot" data-rank="2"><span>第 3 志願</span><strong>等待選擇</strong></div></div>
+        <div class="selection-layout"><div><h3>收藏職業池</h3><div id="likedJobs" class="liked-jobs"></div></div><div class="skill-tree-panel"><div id="skillTree" class="skill-tree"><div class="core-node">選擇第一志願</div></div><p id="synergyText" class="synergy-text">把職業放進第 1 志願後，會檢查 richValueId 與你的生涯價值是否相遇。</p></div></div>
+      </section>
+      <section id="reportStage" class="stage report-stage" aria-labelledby="reportTitle">
+        <div class="report-actions"><button id="copyIep" class="secondary-action">複製 IEP 策略清單</button><button id="downloadReport" class="primary-action">下載報告截圖</button></div>
+        <article id="missionReport" class="mission-report">
+          <header class="report-header"><div><span class="section-label">MISSION REPORT</span><h2 id="reportTitle">IEP 轉銜特攻履歷</h2></div><div class="report-id"><span id="reportName">未命名隊員</span><b id="reportDate"></b></div></header>
+          <div class="report-grid">
+            <section class="report-block basic-block"><h3>特攻基本資料</h3><dl><div><dt>學生</dt><dd id="basicName">未命名隊員</dd></div><div><dt>施測日期</dt><dd id="basicDate"></dd></div><div><dt>主要稱號</dt><dd id="basicTitle"></dd></div></dl></section>
+            <section class="report-block radar-block"><h3>四大生存屬性</h3><canvas id="radarCanvas" width="360" height="280" aria-label="四大屬性雷達圖"></canvas></section>
+            <section class="report-block values-block"><h3>生涯價值連線</h3><div id="reportValues" class="report-values"></div></section>
+            <section class="report-block iep-block"><h3>特教老師專區</h3><ul id="iepList"></ul></section>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="data/careerData.js?v=cardfix3"></script>
+  <script src="app.js?v=cardfix3"></script>
+</body>
+</html>
