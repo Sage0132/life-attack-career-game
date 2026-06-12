@@ -9,17 +9,17 @@ const ATTR = {
 };
 
 const QUESTIONS = [
-  ['comfort', '躺', '徹底躺平', 'achievement', '戰', '正面對決'],
-  ['relationship', '粉', '粉紅泡泡', 'expression', '我', '我行我素'],
-  ['achievement', '夢', '死磕夢想', 'expression', '飛', '單飛人生'],
-  ['comfort', '穩', '鐵飯碗在手', 'relationship', '家', '家人100分'],
-  ['comfort', '邊', '邊緣人萬歲', 'expression', 'C', '全場我最 C'],
-  ['relationship', '義', '有福同享', 'achievement', '贏', '我要贏到最後'],
-  ['achievement', '闖', '世界很大想去看看', 'comfort', '床', '床的重力太強了'],
-  ['relationship', '演', '戴上面具配合演出', 'expression', '魂', '靈魂不妥協'],
-  ['expression', '藏', '低調的隱藏強者', 'achievement', '冠', '受盡萬人景仰'],
-  ['comfort', '錢', '錢夠用就好了啦', 'relationship', '挺', '義氣相挺衝一波']
-].map(q => [{ attr: q[0], mark: q[1], text: q[2] }, { attr: q[3], mark: q[4], text: q[5] }]);
+  ['comfort', '徹底躺平', 'lounge', 'achievement', '正面對決', 'crossed-blades'],
+  ['relationship', '粉紅泡泡', 'double-hearts', 'expression', '我行我素', 'cool-face'],
+  ['achievement', '死磕夢想', 'pixel-flame', 'expression', '單飛人生', 'laser-eagle'],
+  ['comfort', '鐵飯碗在手', 'shield-safe', 'relationship', '家人100分', 'family-silhouette'],
+  ['comfort', '邊緣人萬歲', 'puzzle-solo', 'expression', '全場我最 C', 'spotlight-mic'],
+  ['relationship', '有福同享', 'team-hands', 'achievement', '我要贏到最後', 'gold-trophy'],
+  ['achievement', '世界很大想去看看', 'adventure-map', 'comfort', '床的重力太強了', 'gravity-bed'],
+  ['relationship', '戴上面具配合演出', 'drama-mask', 'expression', '靈魂不妥協', 'laser-guitar'],
+  ['expression', '低調的隱藏強者', 'hooded-hacker', 'achievement', '受盡萬人景仰', 'champion-medal'],
+  ['comfort', '錢夠用就好了啦', 'coin-piggy', 'relationship', '義氣相挺衝一波', 'battle-buddies']
+].map(q => [{ attr: q[0], text: q[1], icon: q[2] }, { attr: q[3], text: q[4], icon: q[5] }]);
 
 const BASELINE_JOB_IDS = [1, 2, 3, 19, 25, 27, 42, 46, 47, 84];
 
@@ -193,6 +193,33 @@ function chunkTitle(title) {
   return chunks.map(part => `<span>${escapeHtml(part)}</span>`).join('');
 }
 
+function renderMemeIcon(icon) {
+  const common = 'viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg"';
+  const templates = {
+    'lounge': `<svg ${common}><path d="M20 50h50c7 0 12 5 12 12v8H20V50Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M26 50V34h28c8 0 14 6 14 14v2" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M25 70v8M73 70v8" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><rect x="34" y="38" width="14" height="8" fill="currentColor" opacity=".55"/></svg>`,
+    'crossed-blades': `<svg ${common}><path d="M24 76 72 28l8-14-14 8-48 48 6 6Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M72 76 24 28l-8-14 14 8 48 48-6 6Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M34 62 24 72M62 62l10 10" stroke="currentColor" stroke-width="5" stroke-linecap="square"/></svg>`,
+    'double-hearts': `<svg ${common}><path d="M33 34c0-8 10-12 16-5 6-7 16-3 16 5 0 12-16 22-16 22S33 46 33 34Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M16 48c0-6 8-9 12-4 4-5 12-2 12 4 0 9-12 16-12 16S16 57 16 48ZM62 52c0-6 8-9 12-4 4-5 12-2 12 4 0 9-12 16-12 16S62 61 62 52Z" stroke="currentColor" stroke-width="4" opacity=".72"/></svg>`,
+    'cool-face': `<svg ${common}><path d="M24 38h48l-8 18H32L24 38Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M33 70h30M18 30h60M30 30l-6 8M66 30l6 8" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M40 46h8M57 46h8" stroke="currentColor" stroke-width="4"/></svg>`,
+    'pixel-flame': `<svg ${common}><path d="M50 12v18h12v12h10v18c0 14-11 24-24 24S24 74 24 60c0-14 8-21 16-31v17h10V12Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M45 61h10v15H45z" fill="currentColor" opacity=".6"/></svg>`,
+    'laser-eagle': `<svg ${common}><path d="M12 50 48 22l36 28-24-4-12 28-12-28-24 4Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M35 46h26M48 22v52" stroke="currentColor" stroke-width="4" opacity=".65"/></svg>`,
+    'shield-safe': `<svg ${common}><path d="M48 12 78 24v22c0 20-12 32-30 40-18-8-30-20-30-40V24l30-12Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><rect x="34" y="38" width="28" height="22" rx="2" stroke="currentColor" stroke-width="4"/><circle cx="48" cy="49" r="5" fill="currentColor"/></svg>`,
+    'family-silhouette': `<svg ${common}><circle cx="48" cy="24" r="8" stroke="currentColor" stroke-width="5"/><circle cx="27" cy="36" r="7" stroke="currentColor" stroke-width="4"/><circle cx="69" cy="36" r="7" stroke="currentColor" stroke-width="4"/><path d="M33 72V58c0-8 6-14 15-14s15 6 15 14v14M16 72V58c0-7 5-12 11-12M80 72V58c0-7-5-12-11-12" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>`,
+    'puzzle-solo': `<svg ${common}><path d="M22 28h20c0-8 12-8 12 0h20v18c-8 0-8 12 0 12v18H54c0-8-12-8-12 0H22V58c8 0 8-12 0-12V28Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/></svg>`,
+    'spotlight-mic': `<svg ${common}><path d="M48 16v26M36 42h24M28 76l20-34 20 34M18 76h60" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 24 8 16M78 24l10-8M48 8V0" stroke="currentColor" stroke-width="4" opacity=".7"/></svg>`,
+    'team-hands': `<svg ${common}><path d="M16 48h18l10 10 10-10h26M24 48v18h16l8-8 8 8h16V48" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M36 31c0-6 8-8 12-3 4-5 12-3 12 3 0 8-12 15-12 15S36 39 36 31Z" stroke="currentColor" stroke-width="4"/></svg>`,
+    'gold-trophy': `<svg ${common}><path d="M32 18h32v20c0 12-7 22-16 22S32 50 32 38V18Z" stroke="currentColor" stroke-width="5"/><path d="M32 26H18v8c0 10 7 16 17 16M64 26h14v8c0 10-7 16-17 16M48 60v14M34 78h28" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M42 30h12v12H42z" fill="currentColor" opacity=".55"/></svg>`,
+    'adventure-map': `<svg ${common}><path d="M18 22 38 14l20 8 20-8v60l-20 8-20-8-20 8V22Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M38 14v60M58 22v60M28 40h8M62 56h8M46 30l8 8-8 8-8-8 8-8Z" stroke="currentColor" stroke-width="4"/></svg>`,
+    'gravity-bed': `<svg ${common}><path d="M16 58h64v16H16V58ZM16 42h24v16H16V42ZM40 48h34c6 0 10 4 10 10" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M60 22h14l-14 14h14M35 22h12l-12 12h12" stroke="currentColor" stroke-width="4" opacity=".7"/></svg>`,
+    'drama-mask': `<svg ${common}><path d="M18 26c18-8 31-8 48 0v22c0 14-10 24-24 24S18 62 18 48V26Z" stroke="currentColor" stroke-width="5"/><path d="M30 42h10M52 42h10M34 58c8 6 16 6 24 0" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>`,
+    'laser-guitar': `<svg ${common}><path d="M22 66c-8-8-2-22 10-22 4-10 18-9 22 0l26-26 8 8-26 26c9 4 10 18 0 22-5 10-22 9-28 0-4 0-8-2-12-8Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><circle cx="45" cy="59" r="6" stroke="currentColor" stroke-width="4"/></svg>`,
+    'hooded-hacker': `<svg ${common}><path d="M24 72V44c0-16 10-28 24-28s24 12 24 28v28H24Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M34 46h28l-8 16H42l-8-16Z" stroke="currentColor" stroke-width="4"/><path d="M39 54h6M51 54h6" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>`,
+    'champion-medal': `<svg ${common}><path d="M34 14h28l-8 28H42L34 14Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><circle cx="48" cy="62" r="18" stroke="currentColor" stroke-width="5"/><path d="M48 50v24M38 62h20" stroke="currentColor" stroke-width="4" opacity=".75"/></svg>`,
+    'coin-piggy': `<svg ${common}><path d="M20 56c0-13 12-24 30-24h16l10 8h8v18h-8c-3 10-14 18-30 18H28l-8-8V56Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M44 24h18M38 76v8M62 76v8M72 48h2" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>`,
+    'battle-buddies': `<svg ${common}><circle cx="34" cy="30" r="8" stroke="currentColor" stroke-width="5"/><circle cx="62" cy="30" r="8" stroke="currentColor" stroke-width="5"/><path d="M20 76V58c0-10 6-16 14-16s14 6 14 16v18M48 76V58c0-10 6-16 14-16s14 6 14 16v18M38 52h20" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>`
+  };
+  return templates[icon] || templates['cool-face'];
+}
+
 function showStage(id, updateHash = true) {
   document.querySelectorAll('.stage').forEach(stage => stage.classList.remove('active'));
   $(id).classList.add('active');
@@ -248,7 +275,7 @@ function renderQuestion() {
     <button class="duel-button" style="--accent:${ATTR[option.attr].color}" data-choice="${index}">
       <span class="option-code">${ATTR[option.attr].label}</span>
       <span class="meme-mark" aria-hidden="true">
-        <span class="meme-icon meme-icon-${option.attr}"><span class="icon-core"></span></span>
+        <span class="meme-svg meme-svg-${option.attr}">${renderMemeIcon(option.icon)}</span>
       </span>
       <strong>${option.text}</strong>
       <small>${index === 0 ? '左邊派' : '右邊派'}</small>

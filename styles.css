@@ -46,3 +46,9 @@
 .meme-icon-expression .icon-core{left:10px;top:4px;width:24px;height:24px;border:2px solid currentColor;transform:rotate(45deg)}
 .meme-icon-expression .icon-core::before{left:9px;top:-10px;width:2px;height:42px;background:currentColor;opacity:.65;transform:rotate(-45deg)}
 .meme-icon-expression .icon-core::after{left:-10px;top:9px;width:42px;height:2px;background:currentColor;opacity:.65;transform:rotate(-45deg)}
+
+.meme-mark{width:136px!important;height:136px!important;padding:14px!important}
+.meme-svg{display:grid;place-items:center;width:100%;height:100%;color:var(--accent);filter:drop-shadow(0 0 10px var(--accent))}
+.meme-svg svg{width:94px;height:94px;display:block;overflow:visible}
+.meme-svg path,.meme-svg rect,.meme-svg circle{vector-effect:non-scaling-stroke}
+.duel-button:hover .meme-svg{filter:drop-shadow(0 0 16px var(--accent));transform:scale(1.04)}
