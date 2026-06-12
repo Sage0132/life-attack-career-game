@@ -29,3 +29,20 @@
   #likeBtn{grid-area:like;margin:0}
   .job-card h3.job-title{font-size:clamp(1.9rem,7vw,3rem)!important}
 }
+
+.meme-mark{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:8px!important;width:112px!important;height:112px!important;margin:0 0 24px!important;padding:10px!important;border:2px solid var(--accent)!important;color:var(--accent)!important;background:#080911!important;font-size:0!important;font-weight:900!important;box-shadow:0 0 24px var(--accent),inset 0 0 18px rgba(255,255,255,.08)!important}
+.meme-glyph{display:block;font-family:var(--font-display),var(--font-body);font-size:2.75rem;line-height:.9;color:var(--accent);text-shadow:0 0 18px var(--accent)}
+.meme-icon{position:relative;display:block;width:42px;height:34px;color:var(--accent);opacity:.9;filter:drop-shadow(0 0 8px var(--accent))}
+.meme-icon .icon-core,.meme-icon .icon-core::before,.meme-icon .icon-core::after{content:"";position:absolute;display:block;box-sizing:border-box}
+.meme-icon-comfort .icon-core{left:5px;top:7px;width:30px;height:20px;border:2px solid currentColor;border-radius:3px}
+.meme-icon-comfort .icon-core::before{right:-7px;top:5px;width:5px;height:8px;border:2px solid currentColor;border-left:0;border-radius:0 2px 2px 0}
+.meme-icon-comfort .icon-core::after{left:9px;top:3px;width:4px;height:10px;background:currentColor;box-shadow:8px 0 0 currentColor}
+.meme-icon-achievement .icon-core{left:5px;top:1px;width:32px;height:32px;border:2px solid currentColor;border-radius:50%}
+.meme-icon-achievement .icon-core::before{left:-7px;top:14px;width:42px;height:2px;background:currentColor}
+.meme-icon-achievement .icon-core::after{left:14px;top:-7px;width:2px;height:42px;background:currentColor}
+.meme-icon-relationship .icon-core{left:4px;top:15px;width:34px;height:2px;background:currentColor;transform:rotate(-18deg)}
+.meme-icon-relationship .icon-core::before{left:-2px;top:-8px;width:14px;height:14px;border:2px solid currentColor;border-radius:50%;background:#080911}
+.meme-icon-relationship .icon-core::after{right:-2px;top:-8px;width:14px;height:14px;border:2px solid currentColor;border-radius:50%;background:#080911}
+.meme-icon-expression .icon-core{left:10px;top:4px;width:24px;height:24px;border:2px solid currentColor;transform:rotate(45deg)}
+.meme-icon-expression .icon-core::before{left:9px;top:-10px;width:2px;height:42px;background:currentColor;opacity:.65;transform:rotate(-45deg)}
+.meme-icon-expression .icon-core::after{left:-10px;top:9px;width:42px;height:2px;background:currentColor;opacity:.65;transform:rotate(-45deg)}
