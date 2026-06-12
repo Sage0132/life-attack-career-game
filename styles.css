@@ -30,9 +30,9 @@
   .job-card h3.job-title{font-size:clamp(1.9rem,7vw,3rem)!important}
 }
 
-.meme-mark{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:8px!important;width:112px!important;height:112px!important;margin:0 0 24px!important;padding:10px!important;border:2px solid var(--accent)!important;color:var(--accent)!important;background:#080911!important;font-size:0!important;font-weight:900!important;box-shadow:0 0 24px var(--accent),inset 0 0 18px rgba(255,255,255,.08)!important}
-.meme-glyph{display:block;font-family:var(--font-display),var(--font-body);font-size:2.75rem;line-height:.9;color:var(--accent);text-shadow:0 0 18px var(--accent)}
-.meme-icon{position:relative;display:block;width:42px;height:34px;color:var(--accent);opacity:.9;filter:drop-shadow(0 0 8px var(--accent))}
+.meme-mark{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;width:112px!important;height:112px!important;margin:0 0 24px!important;padding:10px!important;border:2px solid var(--accent)!important;color:var(--accent)!important;background:#080911!important;font-size:0!important;font-weight:900!important;box-shadow:0 0 24px var(--accent),inset 0 0 18px rgba(255,255,255,.08)!important}
+.meme-glyph{display:none!important}
+.meme-icon{position:relative;display:block;width:42px;height:34px;color:var(--accent);opacity:.95;filter:drop-shadow(0 0 10px var(--accent));transform:scale(1.42)}
 .meme-icon .icon-core,.meme-icon .icon-core::before,.meme-icon .icon-core::after{content:"";position:absolute;display:block;box-sizing:border-box}
 .meme-icon-comfort .icon-core{left:5px;top:7px;width:30px;height:20px;border:2px solid currentColor;border-radius:3px}
 .meme-icon-comfort .icon-core::before{right:-7px;top:5px;width:5px;height:8px;border:2px solid currentColor;border-left:0;border-radius:0 2px 2px 0}

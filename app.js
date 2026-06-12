@@ -249,7 +249,6 @@ function renderQuestion() {
       <span class="option-code">${ATTR[option.attr].label}</span>
       <span class="meme-mark" aria-hidden="true">
         <span class="meme-icon meme-icon-${option.attr}"><span class="icon-core"></span></span>
-        <span class="meme-glyph">${option.mark}</span>
       </span>
       <strong>${option.text}</strong>
       <small>${index === 0 ? '左邊派' : '右邊派'}</small>
