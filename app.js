@@ -8,28 +8,21 @@ const ATTR = {
   achievement: { label: '挑戰成就', color: '#FF6B00', title: '正面突破的熱血輸出' }
 };
 
-const QUESTIONS = [
-  ['comfort', '徹底躺平', 'lounge', 'achievement', '正面對決', 'crossed-blades'],
-  ['relationship', '粉紅泡泡', 'double-hearts', 'expression', '我行我素', 'cool-face'],
-  ['achievement', '死磕夢想', 'pixel-flame', 'expression', '單飛人生', 'laser-eagle'],
-  ['comfort', '鐵飯碗在手', 'shield-safe', 'relationship', '家人100分', 'family-silhouette'],
-  ['comfort', '邊緣人萬歲', 'puzzle-solo', 'expression', '全場我最 C', 'spotlight-mic'],
-  ['relationship', '有福同享', 'team-hands', 'achievement', '我要贏到最後', 'gold-trophy'],
-  ['achievement', '世界很大想去看看', 'adventure-map', 'comfort', '床的重力太強了', 'gravity-bed'],
-  ['relationship', '戴上面具配合演出', 'drama-mask', 'expression', '靈魂不妥協', 'laser-guitar'],
-  ['expression', '低調的隱藏強者', 'hooded-hacker', 'achievement', '受盡萬人景仰', 'champion-medal'],
-  ['comfort', '錢夠用就好了啦', 'coin-piggy', 'relationship', '義氣相挺衝一波', 'battle-buddies']
-].map(q => [{ attr: q[0], text: q[1], icon: q[2] }, { attr: q[3], text: q[4], icon: q[5] }]);
-
 const BASELINE_JOB_IDS = [1, 2, 3, 19, 25, 27, 42, 46, 47, 84];
+const QUIZ_TARGET_COUNT = 20;
+const GRID_PAGE_SIZE = 12;
+const GRID_PICK_LIMIT = 3;
 
 const state = {
   quizIndex: 0,
+  dynamicQuestions: [],
   scores: { comfort: 0, relationship: 0, expression: 0, achievement: 0 },
   chosenValueIds: new Set(),
   maxCategory: 'comfort',
   filteredJobs: [],
-  jobIndex: 0,
+  selectionPages: [[], []],
+  selectionPage: 0,
+  selectedGridJobs: [],
   likedJobs: [],
   rankedJobs: [null, null, null]
 };
@@ -45,6 +38,16 @@ $('todayText').textContent = today;
 $('reportDate').textContent = today;
 $('basicDate').textContent = today;
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[char]));
+}
+
 function normalizeStrategy(strategySkill) {
   if (typeof strategySkill === 'string') {
     const match = strategySkill.match(/^(.+?)[（(](.+)[）)]$/);
@@ -52,43 +55,70 @@ function normalizeStrategy(strategySkill) {
     return {
       gameName,
       iepName: gameName,
-      description: match ? match[2] : strategySkill
+      description: match ? match[2] : strategySkill,
+      fullText: strategySkill
     };
   }
 
   return {
     gameName: strategySkill?.gameName || '待補特攻技能',
     iepName: strategySkill?.iepName || strategySkill?.gameName || '待補正式特教策略',
-    description: strategySkill?.description || '此職業的 richValueId 與 strategySkill 尚未匯入。'
+    description: strategySkill?.description || '此職業的 richValueId 與 strategySkill 尚未匯入。',
+    fullText: strategySkill?.fullText
   };
 }
+
+function inferJobCategory(job) {
+  if (job.category && ATTR[job.category]) return job.category;
+  const text = `${job.title || job.name || ''} ${job.majorCategory || ''} ${job.minorCategory || ''}`;
+  if (/設計|美術|插畫|藝術|表演|傳播|節目|主持|影像|時尚|美容|造型|攝影|文案|網站|網頁|調酒|廚|餐/.test(text)) return 'expression';
+  if (/教育|社心|客服|服務|護理|醫|藥|牙|導遊|銷售|店|社工|照顧|人群|諮商|宗教|公益|慈善|獸醫|動物/.test(text)) return 'relationship';
+  if (/農|林|漁|牧|生產|製造|維修|基層|行政|登錄|資料|倉儲|清潔|保全|駕駛|水手|作業|操作|宅配|郵務|貨運/.test(text)) return 'comfort';
+  if (/研究|科學|工程|法律|政治|財經|管理|飛航|警|消防|軍|運動|創業|主管|分析/.test(text)) return 'achievement';
+  return 'unclassified';
+}
+
+function normalizeJob(job) {
+  const category = inferJobCategory(job);
+  return {
+    ...job,
+    title: job.title || job.name,
+    name: job.name || job.title,
+    category,
+    displayCategory: category === 'unclassified' ? '未分類盲盒' : ATTR[category].label,
+    richValueId: Array.isArray(job.richValueId) ? job.richValueId : [],
+    strategySkill: normalizeStrategy(job.strategySkill)
+  };
+}
+
+const careerJobsData = rawCareerJobsData.map(normalizeJob);
 
 function getCleanStrategySkill(job) {
   const fallbackByCategory = {
     comfort: {
-      gameName: '規律節奏工作檢核表',
-      iepName: '自動化感官調節與規律節奏勞動策略',
-      description: '利用定時番茄鐘與環境結構化減低分心風險，維持高度工作專注力'
+      gameName: '標準化工作記憶檢核策略',
+      iepName: '標準化工作記憶檢核策略',
+      description: '利用視覺提示與 SOP 拆解，協助學生在常態勞動中維持視覺專注，降低分心風險'
     },
     relationship: {
-      gameName: '人際邊界溝通劇本',
+      gameName: '人際邊界綠燈指令與同理心溝通劇本',
       iepName: '人際邊界綠燈指令與同理心溝通劇本',
       description: '建立心理防護罩，運用結構化社交退場機制應對職場人際摩擦'
     },
     expression: {
-      gameName: '視覺化靈感加工術',
+      gameName: '零起點靈感加工與視覺化心智圖',
       iepName: '零起點靈感加工與視覺化心智圖',
       description: '利用微調模仿策略與數位輔具，降低從零發想的挫折感，將創意落實為實體計畫'
     },
     achievement: {
-      gameName: '高壓任務拆解指令',
-      iepName: '高挫折耐受自我對話與高階後設認知策略',
-      description: '將大型繁複任務拆解為微型目標，透過自我增強指令控制高壓環境下的衝動'
+      gameName: '後設認知與自我對話策略',
+      iepName: '後設認知與自我對話策略',
+      description: '訓練學生在高壓或多工作業環境下，運用內部語言自我調節情緒，建立耐挫力'
     },
     unclassified: {
-      gameName: 'UDL 工作檢核表',
+      gameName: '通用學習設計（UDL）工作檢核表',
       iepName: '通用學習設計（UDL）工作檢核表',
-      description: '利用圖像化步驟與微型目標拆解，降低工作記憶負擔，提升職場適應力'
+      description: '利用圖像化步驟與微型目標拆解，降低工作記憶負擔'
     }
   };
 
@@ -101,72 +131,13 @@ function getCleanStrategySkill(job) {
 }
 
 function getTeacherStrategyText(job) {
-  const strategy = normalizeStrategy(job?.strategySkill);
-  const exactStrategy = strategy.fullText || `${strategy.gameName}（${strategy.description}）`;
-  const plainText = String(exactStrategy || '').trim();
-
-  if (plainText && !plainText.includes('待補')) return plainText;
-
-  switch (job?.category) {
-    case 'comfort':
-      return '標準化工作記憶檢核策略（利用視覺提示與 SOP 拆解，協助學生在常態勞動中維持視覺專注，降低分心風險）';
-    case 'relationship':
-      return '人際邊界綠燈指令與同理心溝通劇本（建立心理防護罩，運用結構化社交退場機制應對職場人際摩擦）';
-    case 'expression':
-      return '零起點靈感加工與視覺化心智圖（利用微調模仿策略與數位輔具，降低從零發想的挫折感，將創意落實為實體計畫）';
-    case 'achievement':
-      return '後設認知與自我對話策略（訓練學生在高壓或多工作業環境下，運用內部語言自我調節情緒，建立耐挫力）';
-    default:
-      return '通用學習設計（UDL）工作檢核表（利用圖像化步驟與微型目標拆解，降低工作記憶負擔）';
-  }
+  const strategy = getCleanStrategySkill(job);
+  return strategy.fullText || `${strategy.gameName}（${strategy.description}）`;
 }
-
-function inferJobCategory(job) {
-  if (job.category && ATTR[job.category]) return job.category;
-
-  const text = `${job.title || job.name || ''} ${job.majorCategory || ''} ${job.minorCategory || ''}`;
-  if (/設計|美術|插畫|藝術|表演|傳播|節目|主持|影像|時尚|美容|造型|攝影|文案|網站|網頁|調酒|廚|餐/.test(text)) {
-    return 'expression';
-  }
-  if (/教育|社心|客服|服務|護理|醫|藥|牙|導遊|銷售|店|社工|照顧|人群|諮商/.test(text)) {
-    return 'relationship';
-  }
-  if (/農|林|漁|牧|生產|製造|維修|基層|行政|登錄|資料|倉儲|清潔|保全|駕駛|水手|作業|操作/.test(text)) {
-    return 'comfort';
-  }
-  if (/研究|科學|工程|法律|政治|財經|管理|飛航|警|消防|軍|運動|創業|主管|分析/.test(text)) {
-    return 'achievement';
-  }
-  return 'unclassified';
-}
-
-function normalizeJob(job) {
-  const category = inferJobCategory(job);
-  return {
-    ...job,
-    title: job.title || job.name,
-    category,
-    displayCategory: category === 'unclassified' ? '未分類盲盒' : ATTR[category].label,
-    richValueId: Array.isArray(job.richValueId) ? job.richValueId : [],
-    strategySkill: normalizeStrategy(job.strategySkill)
-  };
-}
-
-const careerJobsData = rawCareerJobsData.map(normalizeJob);
 
 function jobMark(job) {
   const marks = { comfort: '安', relationship: '情', expression: '我', achievement: '戰', unclassified: '盲' };
   return marks[job?.category] || '職';
-}
-
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, char => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[char]));
 }
 
 function formatJobTitle(title) {
@@ -178,26 +149,80 @@ function formatJobTitle(title) {
 
 function chunkTitle(title) {
   const safeTitle = String(title || '').trim();
-  const hasDivider = /[／/]/.test(safeTitle);
-  if (hasDivider) return formatJobTitle(safeTitle);
+  if (/[／/]/.test(safeTitle)) return formatJobTitle(safeTitle);
   if (safeTitle.length <= 9) return escapeHtml(safeTitle);
 
   const suffixes = ['工作人員', '操作員', '處理人員', '登錄人員', '客服人員'];
   const suffix = suffixes.find(item => safeTitle.endsWith(item));
   const body = suffix ? safeTitle.slice(0, -suffix.length) : safeTitle;
   const chunks = [];
-  for (let index = 0; index < body.length; index += 5) {
-    chunks.push(body.slice(index, index + 5));
-  }
+  for (let index = 0; index < body.length; index += 5) chunks.push(body.slice(index, index + 5));
   if (suffix) chunks.push(suffix);
   return chunks.map(part => `<span>${escapeHtml(part)}</span>`).join('');
+}
+
+function shuffle(items) {
+  return [...items].sort(() => 0.5 - Math.random());
+}
+
+function addUnique(target, candidates, limit) {
+  for (const item of candidates) {
+    if (target.length >= limit) break;
+    if (!target.some(existing => existing.id === item.id)) target.push(item);
+  }
+}
+
+function topAttr() {
+  return Object.keys(state.scores).sort((a, b) => state.scores[b] - state.scores[a])[0];
+}
+
+function getMemeText(id, originalName) {
+  const memeMap = {
+    1: '誓死捍衛正義',
+    10: '內心平靜如老僧入定',
+    11: '追求瘋狂的大冒險',
+    12: '誰都別想管我的自由',
+    14: '毫無後顧之憂的安全感',
+    23: '享受孤獨的精緻邊緣人',
+    24: '平凡單純的溫馨小日子',
+    27: '進入靈魂登出的躺平狀態',
+    28: '只做我瘋狂熱愛的事',
+    35: '戶頭數字夠用就好了',
+    36: '穩到不行的鐵飯碗',
+    38: '變成暴發戶賺大錢'
+  };
+  return memeMap[id] || originalName;
+}
+
+function iconForValue(value) {
+  const byId = {
+    1: 'shield-safe',
+    10: 'gravity-bed',
+    11: 'adventure-map',
+    12: 'laser-eagle',
+    14: 'shield-safe',
+    23: 'puzzle-solo',
+    24: 'lounge',
+    27: 'gravity-bed',
+    28: 'laser-guitar',
+    35: 'coin-piggy',
+    36: 'shield-safe',
+    38: 'gold-trophy'
+  };
+  const byCategory = {
+    comfort: 'lounge',
+    relationship: 'double-hearts',
+    expression: 'cool-face',
+    achievement: 'crossed-blades'
+  };
+  return byId[value.id] || byCategory[value.category] || 'cool-face';
 }
 
 function renderMemeIcon(icon) {
   const common = 'viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg"';
   const templates = {
     'lounge': `<svg ${common}><path d="M20 50h50c7 0 12 5 12 12v8H20V50Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M26 50V34h28c8 0 14 6 14 14v2" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M25 70v8M73 70v8" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><rect x="34" y="38" width="14" height="8" fill="currentColor" opacity=".55"/></svg>`,
-    'crossed-blades': `<svg ${common}><path d="M24 76 72 28l8-14-14 8-48 48 6 6Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M72 76 24 28l-8-14 14 8 48 48-6 6Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M34 62 24 72M62 62l10 10" stroke="currentColor" stroke-width="5" stroke-linecap="square"/></svg>`,
+    'crossed-blades': `<svg ${common}><path d="M24 76 72 28l8-14-14 8-48 48 6 6Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M72 76 24 28l-8-14 14 8 48 48-6 6Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/></svg>`,
     'double-hearts': `<svg ${common}><path d="M33 34c0-8 10-12 16-5 6-7 16-3 16 5 0 12-16 22-16 22S33 46 33 34Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M16 48c0-6 8-9 12-4 4-5 12-2 12 4 0 9-12 16-12 16S16 57 16 48ZM62 52c0-6 8-9 12-4 4-5 12-2 12 4 0 9-12 16-12 16S62 61 62 52Z" stroke="currentColor" stroke-width="4" opacity=".72"/></svg>`,
     'cool-face': `<svg ${common}><path d="M24 38h48l-8 18H32L24 38Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M33 70h30M18 30h60M30 30l-6 8M66 30l6 8" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M40 46h8M57 46h8" stroke="currentColor" stroke-width="4"/></svg>`,
     'pixel-flame': `<svg ${common}><path d="M50 12v18h12v12h10v18c0 14-11 24-24 24S24 74 24 60c0-14 8-21 16-31v17h10V12Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M45 61h10v15H45z" fill="currentColor" opacity=".6"/></svg>`,
@@ -207,8 +232,8 @@ function renderMemeIcon(icon) {
     'puzzle-solo': `<svg ${common}><path d="M22 28h20c0-8 12-8 12 0h20v18c-8 0-8 12 0 12v18H54c0-8-12-8-12 0H22V58c8 0 8-12 0-12V28Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/></svg>`,
     'spotlight-mic': `<svg ${common}><path d="M48 16v26M36 42h24M28 76l20-34 20 34M18 76h60" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 24 8 16M78 24l10-8M48 8V0" stroke="currentColor" stroke-width="4" opacity=".7"/></svg>`,
     'team-hands': `<svg ${common}><path d="M16 48h18l10 10 10-10h26M24 48v18h16l8-8 8 8h16V48" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M36 31c0-6 8-8 12-3 4-5 12-3 12 3 0 8-12 15-12 15S36 39 36 31Z" stroke="currentColor" stroke-width="4"/></svg>`,
-    'gold-trophy': `<svg ${common}><path d="M32 18h32v20c0 12-7 22-16 22S32 50 32 38V18Z" stroke="currentColor" stroke-width="5"/><path d="M32 26H18v8c0 10 7 16 17 16M64 26h14v8c0 10-7 16-17 16M48 60v14M34 78h28" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M42 30h12v12H42z" fill="currentColor" opacity=".55"/></svg>`,
-    'adventure-map': `<svg ${common}><path d="M18 22 38 14l20 8 20-8v60l-20 8-20-8-20 8V22Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M38 14v60M58 22v60M28 40h8M62 56h8M46 30l8 8-8 8-8-8 8-8Z" stroke="currentColor" stroke-width="4"/></svg>`,
+    'gold-trophy': `<svg ${common}><path d="M32 18h32v20c0 12-7 22-16 22S32 50 32 38V18Z" stroke="currentColor" stroke-width="5"/><path d="M32 26H18v8c0 10 7 16 17 16M64 26h14v8c0 10-7 16-17 16M48 60v14M34 78h28" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>`,
+    'adventure-map': `<svg ${common}><path d="M18 22 38 14l20 8 20-8v60l-20 8-20-8-20 8V22Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M38 14v60M58 22v60M46 30l8 8-8 8-8-8 8-8Z" stroke="currentColor" stroke-width="4"/></svg>`,
     'gravity-bed': `<svg ${common}><path d="M16 58h64v16H16V58ZM16 42h24v16H16V42ZM40 48h34c6 0 10 4 10 10" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><path d="M60 22h14l-14 14h14M35 22h12l-12 12h12" stroke="currentColor" stroke-width="4" opacity=".7"/></svg>`,
     'drama-mask': `<svg ${common}><path d="M18 26c18-8 31-8 48 0v22c0 14-10 24-24 24S18 62 18 48V26Z" stroke="currentColor" stroke-width="5"/><path d="M30 42h10M52 42h10M34 58c8 6 16 6 24 0" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>`,
     'laser-guitar': `<svg ${common}><path d="M22 66c-8-8-2-22 10-22 4-10 18-9 22 0l26-26 8 8-26 26c9 4 10 18 0 22-5 10-22 9-28 0-4 0-8-2-12-8Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><circle cx="45" cy="59" r="6" stroke="currentColor" stroke-width="4"/></svg>`,
@@ -227,27 +252,20 @@ function showStage(id, updateHash = true) {
   document.querySelectorAll('[data-stage-pill]').forEach(pill => {
     pill.classList.toggle('active', pill.dataset.stagePill === stageNumber);
   });
-  if (updateHash && location.hash !== `#${id}`) {
-    history.pushState({ stage: id }, '', `#${id}`);
-  }
+  if (updateHash && location.hash !== `#${id}`) history.pushState({ stage: id }, '', `#${id}`);
 }
 
 function openStage(id, updateHash = true) {
+  document.querySelector('.swipe-zone')?.classList.toggle('selection-mode', id === 'stage2');
   if (id === 'stage2') {
-    if (!state.filteredJobs.length) buildRecommendedDeck();
-    renderJobCard();
+    if (!state.filteredJobs.length) prepare24JobsSelection();
+    renderSelectionPage(state.selectionPage || 0);
   }
-
-  if (id === 'stage3') {
-    if (!state.filteredJobs.length) buildRecommendedDeck();
-    renderLikedJobs();
-  }
-
+  if (id === 'stage3') renderLikedJobs();
   if (id === 'reportStage') {
-    buildReport();
+    buildReport(updateHash);
     return;
   }
-
   showStage(id, updateHash);
 }
 
@@ -256,40 +274,65 @@ function stageFromHash() {
   return ['stage1', 'reveal', 'stage2', 'stage3', 'reportStage'].includes(id) ? id : 'stage1';
 }
 
-function valuesFor(attr) {
-  return careerValuesData.filter(value => value.category === attr);
+function generateDynamicCareerQuiz() {
+  state.dynamicQuestions = [];
+  const usedPairs = new Set();
+  const values = careerValuesData.filter(value => ATTR[value.category]);
+  let guard = 0;
+
+  while (state.dynamicQuestions.length < QUIZ_TARGET_COUNT && guard < 2000) {
+    guard += 1;
+    const cardA = values[Math.floor(Math.random() * values.length)];
+    const cardB = values[Math.floor(Math.random() * values.length)];
+    if (!cardA || !cardB || cardA.id === cardB.id || cardA.category === cardB.category) continue;
+
+    const pairKey = [cardA.id, cardB.id].sort((a, b) => a - b).join('-');
+    if (usedPairs.has(pairKey)) continue;
+    usedPairs.add(pairKey);
+    state.dynamicQuestions.push({
+      cardAId: cardA.id,
+      cardBId: cardB.id,
+      optionA: { id: cardA.id, text: getMemeText(cardA.id, cardA.name), cat: cardA.category, icon: iconForValue(cardA) },
+      optionB: { id: cardB.id, text: getMemeText(cardB.id, cardB.name), cat: cardB.category, icon: iconForValue(cardB) }
+    });
+  }
+
+  state.quizIndex = 0;
+  state.chosenValueIds.clear();
+  state.scores = { comfort: 0, relationship: 0, expression: 0, achievement: 0 };
+  state.filteredJobs = [];
+  state.selectedGridJobs = [];
+  state.likedJobs = [];
+  state.rankedJobs = [null, null, null];
+  renderDynamicQuiz();
 }
 
-function pickOneValueId(attr) {
-  const matchedValues = valuesFor(attr);
-  if (!matchedValues.length) return;
-  const randomValue = matchedValues[Math.floor(Math.random() * matchedValues.length)];
-  state.chosenValueIds.add(randomValue.id);
-}
+function renderDynamicQuiz() {
+  const question = state.dynamicQuestions[state.quizIndex];
+  if (!question) return renderReveal();
+  const pair = [question.optionA, question.optionB];
 
-function renderQuestion() {
-  const pair = QUESTIONS[state.quizIndex];
-  $('quizCount').textContent = `${state.quizIndex + 1}/10`;
-  $('quizProgress').style.width = `${((state.quizIndex + 1) / QUESTIONS.length) * 100}%`;
+  $('quizCount').textContent = `${state.quizIndex + 1}/${state.dynamicQuestions.length}`;
+  $('quizProgress').style.width = `${((state.quizIndex + 1) / state.dynamicQuestions.length) * 100}%`;
   $('duelGrid').innerHTML = pair.map((option, index) => `
-    <button class="duel-button" style="--accent:${ATTR[option.attr].color}" data-choice="${index}">
-      <span class="option-code">${ATTR[option.attr].label}</span>
+    <button class="duel-button" style="--accent:${ATTR[option.cat].color}" data-choice="${index}">
+      <span class="option-code">${ATTR[option.cat].label}</span>
       <span class="meme-mark" aria-hidden="true">
-        <span class="meme-svg meme-svg-${option.attr}">${renderMemeIcon(option.icon)}</span>
+        <span class="meme-svg meme-svg-${option.cat}">${renderMemeIcon(option.icon)}</span>
       </span>
-      <strong>${option.text}</strong>
+      <strong>${escapeHtml(option.text)}</strong>
       <small>${index === 0 ? '左邊派' : '右邊派'}</small>
     </button>
   `).join('');
 
   document.querySelectorAll('.duel-button').forEach(button => {
-    button.addEventListener('click', () => chooseOption(pair[Number(button.dataset.choice)].attr, button));
+    button.addEventListener('click', () => handleDynamicAnswer(pair[Number(button.dataset.choice)], button));
   });
 }
 
-function chooseOption(attr, button) {
-  state.scores[attr] += 1;
-  pickOneValueId(attr);
+function handleDynamicAnswer(chosenOption, button) {
+  state.scores[chosenOption.cat] += 1;
+  state.chosenValueIds.add(chosenOption.id);
   button.classList.add('picked');
   document.querySelectorAll('.duel-button').forEach(item => {
     if (item !== button) item.classList.add('faded');
@@ -297,45 +340,32 @@ function chooseOption(attr, button) {
 
   setTimeout(() => {
     state.quizIndex += 1;
-    if (state.quizIndex >= QUESTIONS.length) renderReveal();
-    else renderQuestion();
+    if (state.quizIndex < state.dynamicQuestions.length) renderDynamicQuiz();
+    else renderReveal();
   }, 290);
 }
 
-function topAttr() {
-  return Object.keys(state.scores).sort((a, b) => state.scores[b] - state.scores[a])[0];
-}
-
-function shuffle(items) {
-  return [...items].sort(() => 0.5 - Math.random());
-}
-
-function addUnique(target, candidates, limit) {
-  for (const job of candidates) {
-    if (target.length >= limit) break;
-    if (!target.some(item => item.id === job.id)) target.push(job);
-  }
-}
-
-function buildRecommendedDeck() {
+function prepare24JobsSelection() {
   state.maxCategory = topAttr();
   const finalSelection = [];
 
-  const primaryJobPool = careerJobsData.filter(job => job.category === state.maxCategory);
-  const featuredPrimaryPool = primaryJobPool.filter(job => job.dataStatus === 'added-from-discussion');
-  addUnique(finalSelection, shuffle(featuredPrimaryPool), 5);
-  addUnique(finalSelection, shuffle(primaryJobPool), 5);
+  const primaryPool = careerJobsData.filter(job => job.category === state.maxCategory);
+  addUnique(finalSelection, shuffle(primaryPool), 12);
 
   const baselinePool = careerJobsData.filter(job => BASELINE_JOB_IDS.includes(job.id));
-  addUnique(finalSelection, shuffle(baselinePool), 8);
+  addUnique(finalSelection, shuffle(baselinePool), 18);
 
-  const crossJobPool = careerJobsData.filter(job => job.category !== state.maxCategory);
-  addUnique(finalSelection, shuffle(crossJobPool), 10);
+  const crossPool = careerJobsData.filter(job => job.category !== state.maxCategory);
+  addUnique(finalSelection, shuffle(crossPool), 24);
+  addUnique(finalSelection, shuffle(careerJobsData), 24);
 
-  addUnique(finalSelection, shuffle(careerJobsData), 10);
-
-  state.filteredJobs = shuffle(finalSelection.slice(0, 10));
-  state.jobIndex = 0;
+  state.filteredJobs = shuffle(finalSelection.slice(0, 24));
+  state.selectionPages = [
+    state.filteredJobs.slice(0, GRID_PAGE_SIZE),
+    state.filteredJobs.slice(GRID_PAGE_SIZE, GRID_PAGE_SIZE * 2)
+  ];
+  state.selectionPage = 0;
+  state.selectedGridJobs = [];
   state.likedJobs = [];
   state.rankedJobs = [null, null, null];
 }
@@ -355,56 +385,88 @@ function renderReveal() {
 
   requestAnimationFrame(() => {
     document.querySelectorAll('.attr-fill').forEach(fill => {
-      fill.style.width = `${Number(fill.dataset.score) * 20}%`;
+      const percent = Math.min(100, (Number(fill.dataset.score) / QUIZ_TARGET_COUNT) * 100);
+      fill.style.width = `${percent}%`;
     });
   });
 }
 
-function currentDeck() {
-  return state.filteredJobs.length ? state.filteredJobs : careerJobsData;
+function selectedCountForPage(pageIndex) {
+  const pageIds = new Set(state.selectionPages[pageIndex].map(job => job.id));
+  return state.selectedGridJobs.filter(job => pageIds.has(job.id)).length;
 }
 
-function renderJobCard() {
-  const deck = currentDeck();
-  const job = deck[state.jobIndex];
-  $('likedCount').textContent = state.likedJobs.length;
+function renderSelectionPage(pageIndex = 0) {
+  state.selectionPage = pageIndex;
+  document.querySelector('.swipe-zone')?.classList.add('selection-mode');
+  const jobs = state.selectionPages[pageIndex] || [];
+  const pagePicked = selectedCountForPage(pageIndex);
+  $('jobCursor').textContent = `第 ${pageIndex + 1}/2 輪`;
+  $('likedCount').textContent = state.selectedGridJobs.length;
+  $('jobCard').innerHTML = `
+    <div class="draft-panel">
+      <div class="draft-head">
+        <span>請選出 3 個你覺得最酷的職業</span>
+        <b>${pagePicked}/${GRID_PICK_LIMIT}</b>
+      </div>
+      <div class="job-draft-grid">
+        ${jobs.map(job => `
+          <button class="draft-job ${state.selectedGridJobs.some(item => item.id === job.id) ? 'selected' : ''}" data-job-id="${job.id}">
+            <span class="mini-mark">${jobMark(job)}</span>
+            <strong>${escapeHtml(job.title)}</strong>
+            <small>${job.displayCategory}</small>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  $('rejectBtn').style.display = 'none';
+  $('likeBtn').style.display = 'none';
+  $('finishSwipe').textContent = pageIndex === 0 ? '下一頁：再選 3 張' : '完成選秀，挑前三名';
+  $('finishSwipe').disabled = pagePicked < GRID_PICK_LIMIT;
 
-  if (!job) {
-    $('jobCursor').textContent = `${deck.length}/${deck.length}`;
-    $('jobCard').innerHTML = '<div><span class="job-mark">OK</span><h3>快篩完成</h3><p>可以挑前三名了</p></div>';
+  document.querySelectorAll('.draft-job').forEach(button => {
+    button.addEventListener('click', () => toggleDraftJob(Number(button.dataset.jobId)));
+  });
+}
+
+function toggleDraftJob(jobId) {
+  const pageJobs = state.selectionPages[state.selectionPage] || [];
+  const job = pageJobs.find(item => item.id === jobId);
+  if (!job) return;
+
+  const exists = state.selectedGridJobs.some(item => item.id === job.id);
+  if (exists) {
+    state.selectedGridJobs = state.selectedGridJobs.filter(item => item.id !== job.id);
+  } else if (selectedCountForPage(state.selectionPage) < GRID_PICK_LIMIT) {
+    state.selectedGridJobs.push(job);
+  } else {
+    toast('這一輪已經選滿 3 張');
+  }
+  renderSelectionPage(state.selectionPage);
+}
+
+function finishSelectionPage() {
+  if (selectedCountForPage(state.selectionPage) < GRID_PICK_LIMIT) {
+    toast('請先選滿 3 張職業卡');
     return;
   }
 
-  $('jobCursor').textContent = `${state.jobIndex + 1}/${deck.length}`;
-  $('jobCard').innerHTML = `
-    <div>
-      <span class="job-mark">${jobMark(job)}</span>
-      <h3 class="job-title">${chunkTitle(job.title)}</h3>
-      <p>${job.majorCategory || '職業憧憬卡'}${job.minorCategory ? '｜' + job.minorCategory : ''}｜${job.displayCategory}</p>
-    </div>
-  `;
-}
-
-function moveJob(like) {
-  const deck = currentDeck();
-  const job = deck[state.jobIndex];
-  if (job && like && !state.likedJobs.some(item => item.id === job.id)) {
-    state.likedJobs.push(job);
+  if (state.selectionPage === 0) {
+    renderSelectionPage(1);
+    return;
   }
 
-  state.jobIndex = Math.min(state.jobIndex + 1, deck.length);
-  $('jobCard').animate([
-    { transform: `translateX(${like ? 48 : -48}px) rotate(${like ? 3 : -3}deg)`, opacity: 0.2 },
-    { transform: 'none', opacity: 1 }
-  ], { duration: 220 });
-  renderJobCard();
+  state.likedJobs = [...state.selectedGridJobs];
+  state.rankedJobs = [null, null, null];
+  openStage('stage3');
 }
 
 function renderLikedJobs() {
-  const pool = state.likedJobs.length ? state.likedJobs : currentDeck();
+  const pool = state.likedJobs.length ? state.likedJobs : state.selectedGridJobs;
   $('likedJobs').innerHTML = pool.map(job => `
     <button class="liked-job ${state.rankedJobs.some(item => item?.id === job.id) ? 'selected' : ''}" data-job-id="${job.id}">
-      <strong><span class="mini-mark">${jobMark(job)}</span>${job.title}</strong><br>
+      <strong><span class="mini-mark">${jobMark(job)}</span>${escapeHtml(job.title)}</strong><br>
       <small>${job.displayCategory}</small>
     </button>
   `).join('');
@@ -452,7 +514,7 @@ function renderSkillTree() {
   const overlaps = getOverlaps(first);
   const fallback = careerValuesData.filter(value => state.chosenValueIds.has(value.id)).slice(0, 5);
   const nodes = overlaps.length ? overlaps : fallback;
-  const center = `<div class="core-node"><span class="mini-mark">${jobMark(first)}</span><br>${first.title}</div>`;
+  const center = `<div class="core-node"><span class="mini-mark">${jobMark(first)}</span><br>${escapeHtml(first.title)}</div>`;
   const placed = nodes.map((value, index) => {
     const angle = (Math.PI * 2 / Math.max(nodes.length, 1)) * index - Math.PI / 2;
     const x = 50 + Math.cos(angle) * 34;
@@ -460,7 +522,7 @@ function renderSkillTree() {
     const deg = angle * 180 / Math.PI;
     return `
       <div class="link-line" style="--accent:${ATTR[value.category].color};left:50%;top:50%;width:110px;transform:rotate(${deg}deg)"></div>
-      <div class="value-node" style="--accent:${ATTR[value.category].color};left:calc(${x}% - 58px);top:calc(${y}% - 37px)">${value.name}</div>
+      <div class="value-node" style="--accent:${ATTR[value.category].color};left:calc(${x}% - 58px);top:calc(${y}% - 37px)">${escapeHtml(value.name)}</div>
     `;
   }).join('');
 
@@ -482,7 +544,7 @@ function buildReport(updateHash = true) {
   $('basicName').textContent = student;
   $('basicTitle').textContent = ATTR[top].title;
   const vals = careerValuesData.filter(value => state.chosenValueIds.has(value.id));
-  $('reportValues').innerHTML = vals.slice(0, 18).map(value => `<span class="value-chip">${value.name}</span>`).join('');
+  $('reportValues').innerHTML = vals.slice(0, 18).map(value => `<span class="value-chip">${escapeHtml(value.name)}</span>`).join('');
   const ranked = state.rankedJobs.filter(Boolean);
   let iepListHtml = '';
   ranked.forEach((job, index) => {
@@ -494,9 +556,7 @@ function buildReport(updateHash = true) {
           <span style="color:#FF007F;font-weight:bold;font-size:14px;letter-spacing:1px;">MISSION ${index + 1}</span>
           <span style="color:#888;font-size:12px;">屬性標籤：${categoryLabel}</span>
         </div>
-        <h3 style="color:#ffffff;margin:0 0 10px 0;font-size:20px;font-weight:600;">
-          ${escapeHtml(job.name || job.title)}
-        </h3>
+        <h3 style="color:#ffffff;margin:0 0 10px 0;font-size:20px;font-weight:600;">${escapeHtml(job.name || job.title)}</h3>
         <p style="color:#E0E0E0;margin:0;font-size:15px;line-height:1.6;text-align:justify;">
           <strong style="color:#00F5D4;">轉銜授課策略：</strong>${escapeHtml(finalStrategy)}
         </p>
@@ -537,7 +597,7 @@ function drawRadar() {
   ctx.beginPath();
   keys.forEach((key, index) => {
     const angle = -Math.PI / 2 + index * Math.PI * 2 / keys.length;
-    const r = maxR * (state.scores[key] / 5 || 0.05);
+    const r = maxR * (state.scores[key] / QUIZ_TARGET_COUNT || 0.05);
     const x = cx + Math.cos(angle) * r;
     const y = cy + Math.sin(angle) * r;
     index ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
@@ -562,10 +622,7 @@ function drawRadar() {
 function iepText() {
   return state.rankedJobs
     .filter(Boolean)
-    .map((job, index) => {
-      const finalStrategy = getTeacherStrategyText(job);
-      return `【志願 ${index + 1}】${job.name || job.title}：轉銜授課策略：${finalStrategy}`;
-    })
+    .map((job, index) => `【志願 ${index + 1}】${job.name || job.title}：轉銜授課策略：${getTeacherStrategyText(job)}`)
     .join('\n');
 }
 
@@ -575,12 +632,13 @@ function toast(text) {
   setTimeout(() => $('toast').classList.remove('show'), 1600);
 }
 
-$('startSwipe').addEventListener('click', () => openStage('stage2'));
-$('rejectBtn').addEventListener('click', () => moveJob(false));
-$('likeBtn').addEventListener('click', () => moveJob(true));
-$('finishSwipe').addEventListener('click', () => {
-  openStage('stage3');
+$('startSwipe').addEventListener('click', () => {
+  prepare24JobsSelection();
+  openStage('stage2');
 });
+$('rejectBtn').addEventListener('click', () => {});
+$('likeBtn').addEventListener('click', () => {});
+$('finishSwipe').addEventListener('click', finishSelectionPage);
 $('buildReport').addEventListener('click', () => buildReport());
 $('copyIep').addEventListener('click', async () => {
   const text = iepText();
@@ -614,12 +672,6 @@ $('downloadReport').addEventListener('click', async () => {
   link.click();
 });
 
-document.addEventListener('keydown', event => {
-  if (!$('stage2').classList.contains('active')) return;
-  if (event.key === 'ArrowLeft') moveJob(false);
-  if (event.key === 'ArrowRight') moveJob(true);
-});
-
 document.querySelectorAll('[data-stage-pill]').forEach(pill => {
   pill.addEventListener('click', () => {
     const stageId = pill.dataset.stagePill === '1' ? 'stage1' : pill.dataset.stagePill === '2' ? 'stage2' : 'stage3';
@@ -639,7 +691,7 @@ window.addEventListener('hashchange', () => {
   else openStage(target, false);
 });
 
-renderQuestion();
+generateDynamicCareerQuiz();
 if (location.hash) {
   const target = stageFromHash();
   if (target === 'reportStage') buildReport(false);
