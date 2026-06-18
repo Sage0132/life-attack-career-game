@@ -171,6 +171,43 @@ function shuffle(items) {
   return [...items].sort(() => 0.5 - Math.random());
 }
 
+function buildShuffledValueDeck() {
+  const buckets = Object.keys(ATTR).reduce((acc, category) => {
+    acc[category] = shuffle(careerValuesData.filter(value => value.category === category));
+    return acc;
+  }, {});
+  const deck = [];
+  let lastCategory = null;
+
+  while (Object.values(buckets).some(bucket => bucket.length)) {
+    const availableCategories = Object.keys(buckets)
+      .filter(category => buckets[category].length && category !== lastCategory);
+    const fallbackCategories = Object.keys(buckets).filter(category => buckets[category].length);
+    const candidates = availableCategories.length ? availableCategories : fallbackCategories;
+    const allRemaining = fallbackCategories.reduce((sum, category) => sum + buckets[category].length, 0);
+    const largestCategory = fallbackCategories
+      .sort((a, b) => buckets[b].length - buckets[a].length)[0];
+    const largestRemaining = buckets[largestCategory].length;
+    const nextCategory = largestCategory !== lastCategory && largestRemaining > allRemaining - largestRemaining + 1
+      ? largestCategory
+      : weightedRandomCategory(candidates, buckets);
+    deck.push(buckets[nextCategory].pop());
+    lastCategory = nextCategory;
+  }
+
+  return deck;
+}
+
+function weightedRandomCategory(categories, buckets) {
+  const totalWeight = categories.reduce((sum, category) => sum + buckets[category].length, 0);
+  let roll = Math.random() * totalWeight;
+  for (const category of shuffle(categories)) {
+    roll -= buckets[category].length;
+    if (roll <= 0) return category;
+  }
+  return categories[0];
+}
+
 function addUnique(target, candidates, limit) {
   for (const item of candidates) {
     if (target.length >= limit) break;
@@ -294,7 +331,7 @@ function stageFromHash() {
 }
 
 function startCareerValueScreening() {
-  state.valueDeck = careerValuesData.filter(value => ATTR[value.category]);
+  state.valueDeck = buildShuffledValueDeck();
   state.valueIndex = 0;
   state.refiningValues = false;
   state.wantedValueIds.clear();
