@@ -694,6 +694,7 @@ function getOverlaps(job) {
 
 function getFuelMatch(job) {
   const overlaps = getOverlaps(job);
+  const matchedIds = overlaps.map(value => value.id);
   const richCount = Array.isArray(job?.richValueId) ? job.richValueId.length : 0;
   const percent = richCount ? Math.round((overlaps.length / richCount) * 100) : 0;
   const categoryCounts = overlaps.reduce((acc, value) => {
@@ -702,14 +703,21 @@ function getFuelMatch(job) {
   }, {});
   const focusCategory = Object.keys(categoryCounts).sort((a, b) => categoryCounts[b] - categoryCounts[a])[0] || state.maxCategory || job?.category || 'comfort';
   const focusLabel = ATTR[focusCategory]?.label || '人生目標';
-  const matchedNames = overlaps.map(value => value.name).slice(0, 3);
-  const lead = percent >= 80 ? '燃料配對成功' : percent >= 45 ? '燃料正在接上' : '燃料還在暖機';
+  const matchedNames = overlaps.map(value => value.name);
+  const hitCardNames = matchedNames.map(name => `【${name}】`);
+  const hasMatch = percent > 0;
+  const lead = hasMatch ? '燃料配對成功' : '這是全新的未知基地';
+  const text = hasMatch
+    ? `${lead}！此工作能提供 ${percent}% 燃料，命中你想要的 ${hitCardNames.join(' ')} 生活！`
+    : `${lead}！此工作與你目前的生涯卡雖無交集，但能為你開拓全新視野，非常適合開學後與老師討論！`;
   return {
+    matchedIds,
     percent,
     lead,
     focusLabel,
     matchedNames,
-    text: `${lead}！此工作能提供 ${percent}% 燃料，滋養你想過的【${focusLabel}】生活！`
+    hitCardNames,
+    text
   };
 }
 
@@ -761,21 +769,22 @@ function buildReport(updateHash = true) {
   ranked.forEach((job, index) => {
     const finalStrategy = getTeacherStrategyText(job);
     const fuel = getFuelMatch(job);
-    const matchedText = fuel.matchedNames.length ? `命中：${fuel.matchedNames.map(escapeHtml).join('、')}` : '尚未命中明確生涯卡，可作為討論起點';
     const categoryLabel = job.category ? job.category.toUpperCase() : 'UNCLASSIFIED';
+    const fuelBorder = fuel.percent > 0 ? '#00F5D4' : '#555';
+    const fuelColor = fuel.percent > 0 ? '#00F5D4' : '#FF007F';
     iepListHtml += `
-      <div class="iep-job-block" style="margin-bottom:20px;padding:16px;border-left:4px solid #00F5D4;background-color:rgba(255,255,255,0.03);border-radius:0 8px 8px 0;">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
-          <span style="color:#FF007F;font-weight:bold;font-size:14px;letter-spacing:1px;">MISSION ${index + 1}</span>
-          <span style="color:#888;font-size:12px;">屬性標籤：${categoryLabel}</span>
+      <div class="iep-job-block" style="margin-bottom:24px;padding:20px;border-left:4px solid #00F5D4;background:rgba(255,255,255,0.02);border-radius:0 12px 12px 0;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;">
+          <span style="color:#FF007F;font-weight:bold;font-size:14px;letter-spacing:1px;">MISSION 0${index + 1}</span>
+          <span style="color:#00F5D4;font-size:12px;background:rgba(0,245,212,0.1);padding:2px 8px;border-radius:4px;">${categoryLabel} 特攻</span>
         </div>
-        <h3 style="color:#ffffff;margin:0 0 10px 0;font-size:20px;font-weight:600;">${escapeHtml(job.name || job.title)}</h3>
-        <div class="fuel-report" style="margin:0 0 12px 0;padding:10px 12px;border:1px solid rgba(0,245,212,.35);background:rgba(0,245,212,.08);">
-          <strong style="color:#00F5D4;font-size:18px;">人生目標滋養度 ${fuel.percent}%</strong>
-          <p style="color:#ffffff;margin:6px 0 0;font-size:14px;line-height:1.55;">${escapeHtml(fuel.text)} ${matchedText}</p>
+        <h3 style="color:#ffffff;margin:0 0 12px 0;font-size:22px;font-weight:600;">${escapeHtml(job.name || job.title)}</h3>
+        <div class="fuel-report" style="background:rgba(255,255,255,0.04);padding:12px;border-radius:6px;margin-bottom:12px;border:1px solid ${fuelBorder};">
+          <strong style="color:${fuelColor};font-size:16px;">人生目標滋養度 ${fuel.percent}%</strong><br>
+          <p style="color:#DCCFEC;margin:6px 0 0 0;font-size:14px;line-height:1.4;">${escapeHtml(fuel.text)}</p>
         </div>
         <p style="color:#E0E0E0;margin:0;font-size:15px;line-height:1.6;text-align:justify;">
-          <strong style="color:#00F5D4;">轉銜授課策略：</strong>${escapeHtml(finalStrategy)}
+          <strong style="color:#FF007F;">IEP 轉銜授課策略：</strong>${escapeHtml(finalStrategy)}
         </p>
       </div>
     `;
@@ -812,9 +821,12 @@ function drawRadar() {
   }
 
   ctx.beginPath();
+  const maxScore = Math.max(...keys.map(key => state.scores[key]), 1);
   keys.forEach((key, index) => {
     const angle = -Math.PI / 2 + index * Math.PI * 2 / keys.length;
-    const r = maxR * (state.scores[key] / chosenValueTotal() || 0.05);
+    const score = state.scores[key];
+    const ratio = score / maxScore;
+    const r = score ? maxR * Math.max(0.32, ratio) : maxR * 0.04;
     const x = cx + Math.cos(angle) * r;
     const y = cy + Math.sin(angle) * r;
     index ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
