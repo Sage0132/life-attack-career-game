@@ -9,13 +9,15 @@ const ATTR = {
 };
 
 const BASELINE_JOB_IDS = [1, 2, 3, 19, 25, 27, 42, 46, 47, 84];
-const QUIZ_TARGET_COUNT = 20;
+const VALUE_FINAL_LIMIT = 10;
 const GRID_PAGE_SIZE = 12;
 const GRID_PICK_LIMIT = 3;
 
 const state = {
-  quizIndex: 0,
-  dynamicQuestions: [],
+  valueIndex: 0,
+  valueDeck: [],
+  wantedValueIds: new Set(),
+  refiningValues: false,
   scores: { comfort: 0, relationship: 0, expression: 0, achievement: 0 },
   chosenValueIds: new Set(),
   maxCategory: 'comfort',
@@ -23,6 +25,9 @@ const state = {
   selectionPages: [[], []],
   selectionPage: 0,
   selectedGridJobs: [],
+  selectedTopJobs: [],
+  jobSearchOpen: false,
+  jobSearchQuery: '',
   likedJobs: [],
   rankedJobs: [null, null, null]
 };
@@ -176,6 +181,19 @@ function topAttr() {
   return Object.keys(state.scores).sort((a, b) => state.scores[b] - state.scores[a])[0];
 }
 
+function chosenValueTotal() {
+  return Math.max(state.chosenValueIds.size, 1);
+}
+
+function recomputeScoresFromChosenValues() {
+  state.scores = { comfort: 0, relationship: 0, expression: 0, achievement: 0 };
+  careerValuesData.forEach(value => {
+    if (state.chosenValueIds.has(value.id) && ATTR[value.category]) {
+      state.scores[value.category] += 1;
+    }
+  });
+}
+
 function getMemeText(id, originalName) {
   const memeMap = {
     1: '誓死捍衛正義',
@@ -274,75 +292,128 @@ function stageFromHash() {
   return ['stage1', 'reveal', 'stage2', 'stage3', 'reportStage'].includes(id) ? id : 'stage1';
 }
 
-function generateDynamicCareerQuiz() {
-  state.dynamicQuestions = [];
-  const usedPairs = new Set();
-  const values = careerValuesData.filter(value => ATTR[value.category]);
-  let guard = 0;
-
-  while (state.dynamicQuestions.length < QUIZ_TARGET_COUNT && guard < 2000) {
-    guard += 1;
-    const cardA = values[Math.floor(Math.random() * values.length)];
-    const cardB = values[Math.floor(Math.random() * values.length)];
-    if (!cardA || !cardB || cardA.id === cardB.id || cardA.category === cardB.category) continue;
-
-    const pairKey = [cardA.id, cardB.id].sort((a, b) => a - b).join('-');
-    if (usedPairs.has(pairKey)) continue;
-    usedPairs.add(pairKey);
-    state.dynamicQuestions.push({
-      cardAId: cardA.id,
-      cardBId: cardB.id,
-      optionA: { id: cardA.id, text: getMemeText(cardA.id, cardA.name), cat: cardA.category, icon: iconForValue(cardA) },
-      optionB: { id: cardB.id, text: getMemeText(cardB.id, cardB.name), cat: cardB.category, icon: iconForValue(cardB) }
-    });
-  }
-
-  state.quizIndex = 0;
+function startCareerValueScreening() {
+  state.valueDeck = careerValuesData.filter(value => ATTR[value.category]);
+  state.valueIndex = 0;
+  state.refiningValues = false;
+  state.wantedValueIds.clear();
   state.chosenValueIds.clear();
   state.scores = { comfort: 0, relationship: 0, expression: 0, achievement: 0 };
   state.filteredJobs = [];
+  state.selectionPages = [[], []];
+  state.selectionPage = 0;
   state.selectedGridJobs = [];
+  state.selectedTopJobs = [];
+  state.jobSearchOpen = false;
+  state.jobSearchQuery = '';
   state.likedJobs = [];
   state.rankedJobs = [null, null, null];
-  renderDynamicQuiz();
+  renderCareerValueCard();
 }
 
-function renderDynamicQuiz() {
-  const question = state.dynamicQuestions[state.quizIndex];
-  if (!question) return renderReveal();
-  const pair = [question.optionA, question.optionB];
+function renderCareerValueCard() {
+  const value = state.valueDeck[state.valueIndex];
+  if (!value) return resolveCareerValueScreening();
+  const progress = ((state.valueIndex + 1) / state.valueDeck.length) * 100;
+  const text = getMemeText(value.id, value.name);
 
-  $('quizCount').textContent = `${state.quizIndex + 1}/${state.dynamicQuestions.length}`;
-  $('quizProgress').style.width = `${((state.quizIndex + 1) / state.dynamicQuestions.length) * 100}%`;
-  $('duelGrid').innerHTML = pair.map((option, index) => `
-    <button class="duel-button" style="--accent:${ATTR[option.cat].color}" data-choice="${index}">
-      <span class="option-code">${ATTR[option.cat].label}</span>
+  $('quizCount').textContent = `${state.valueIndex + 1}/${state.valueDeck.length}`;
+  $('quizProgress').style.width = `${progress}%`;
+  $('duelGrid').innerHTML = `
+    <article class="value-screen-card" style="--accent:${ATTR[value.category].color}">
+      <span class="option-code">${ATTR[value.category].label}</span>
       <span class="meme-mark" aria-hidden="true">
-        <span class="meme-svg meme-svg-${option.cat}">${renderMemeIcon(option.icon)}</span>
+        <span class="meme-svg meme-svg-${value.category}">${renderMemeIcon(iconForValue(value))}</span>
       </span>
-      <strong>${escapeHtml(option.text)}</strong>
-      <small>${index === 0 ? '左邊派' : '右邊派'}</small>
-    </button>
-  `).join('');
+      <strong>${escapeHtml(text)}</strong>
+      <small>${escapeHtml(value.name)}</small>
+      <div class="value-actions">
+        <button class="value-choice want" data-value-answer="want">這是我想要的</button>
+        <button class="value-choice skip" data-value-answer="skip">這還好 / 不要</button>
+      </div>
+    </article>
+  `;
 
-  document.querySelectorAll('.duel-button').forEach(button => {
-    button.addEventListener('click', () => handleDynamicAnswer(pair[Number(button.dataset.choice)], button));
+  document.querySelectorAll('[data-value-answer]').forEach(button => {
+    button.addEventListener('click', () => handleAnswer(button.dataset.valueAnswer === 'want', button));
   });
 }
 
-function handleDynamicAnswer(chosenOption, button) {
-  state.scores[chosenOption.cat] += 1;
-  state.chosenValueIds.add(chosenOption.id);
+function handleAnswer(wantsValue, button) {
+  const value = state.valueDeck[state.valueIndex];
+  if (!value) return;
+  if (wantsValue) state.wantedValueIds.add(value.id);
   button.classList.add('picked');
-  document.querySelectorAll('.duel-button').forEach(item => {
+  document.querySelectorAll('.value-choice').forEach(item => {
     if (item !== button) item.classList.add('faded');
   });
 
   setTimeout(() => {
-    state.quizIndex += 1;
-    if (state.quizIndex < state.dynamicQuestions.length) renderDynamicQuiz();
-    else renderReveal();
-  }, 290);
+    state.valueIndex += 1;
+    renderCareerValueCard();
+  }, 220);
+}
+
+function resolveCareerValueScreening() {
+  if (state.wantedValueIds.size > VALUE_FINAL_LIMIT) {
+    state.refiningValues = true;
+    state.chosenValueIds.clear();
+    renderValueRefinement();
+    return;
+  }
+  finalizeCareerValues([...state.wantedValueIds]);
+}
+
+function renderValueRefinement() {
+  const wantedValues = careerValuesData.filter(value => state.wantedValueIds.has(value.id));
+  $('quizCount').textContent = `${state.chosenValueIds.size}/${VALUE_FINAL_LIMIT}`;
+  $('quizProgress').style.width = `${(state.chosenValueIds.size / VALUE_FINAL_LIMIT) * 100}%`;
+  $('duelGrid').innerHTML = `
+    <section class="value-refine-panel">
+      <div class="draft-head">
+        <span>想要池太滿了，請精選 10 張人生燃料</span>
+        <b>${state.chosenValueIds.size}/${VALUE_FINAL_LIMIT}</b>
+      </div>
+      <div class="value-refine-grid">
+        ${wantedValues.map(value => `
+          <button class="value-refine-card ${state.chosenValueIds.has(value.id) ? 'selected' : ''}" style="--accent:${ATTR[value.category].color}" data-value-id="${value.id}">
+            <span>${ATTR[value.category].label}</span>
+            <strong>${escapeHtml(getMemeText(value.id, value.name))}</strong>
+            <small>${escapeHtml(value.name)}</small>
+          </button>
+        `).join('')}
+      </div>
+      <button id="finishValueRefine" class="primary-action" ${state.chosenValueIds.size === VALUE_FINAL_LIMIT ? '' : 'disabled'}>鎖定 10 張燃料卡</button>
+    </section>
+  `;
+
+  document.querySelectorAll('.value-refine-card').forEach(button => {
+    button.addEventListener('click', () => toggleRefineValue(Number(button.dataset.valueId)));
+  });
+  $('finishValueRefine').addEventListener('click', () => {
+    if (state.chosenValueIds.size !== VALUE_FINAL_LIMIT) {
+      toast('請先選滿 10 張人生燃料卡');
+      return;
+    }
+    finalizeCareerValues([...state.chosenValueIds]);
+  });
+}
+
+function toggleRefineValue(valueId) {
+  if (state.chosenValueIds.has(valueId)) {
+    state.chosenValueIds.delete(valueId);
+  } else if (state.chosenValueIds.size < VALUE_FINAL_LIMIT) {
+    state.chosenValueIds.add(valueId);
+  } else {
+    toast('精選池已經滿 10 張');
+  }
+  renderValueRefinement();
+}
+
+function finalizeCareerValues(valueIds) {
+  state.chosenValueIds = new Set(valueIds);
+  recomputeScoresFromChosenValues();
+  renderReveal();
 }
 
 function prepare24JobsSelection() {
@@ -385,7 +456,7 @@ function renderReveal() {
 
   requestAnimationFrame(() => {
     document.querySelectorAll('.attr-fill').forEach(fill => {
-      const percent = Math.min(100, (Number(fill.dataset.score) / QUIZ_TARGET_COUNT) * 100);
+      const percent = Math.min(100, (Number(fill.dataset.score) / chosenValueTotal()) * 100);
       fill.style.width = `${percent}%`;
     });
   });
@@ -396,11 +467,33 @@ function selectedCountForPage(pageIndex) {
   return state.selectedGridJobs.filter(job => pageIds.has(job.id)).length;
 }
 
+function requiredSelectionTotal(pageIndex) {
+  return (pageIndex + 1) * GRID_PICK_LIMIT;
+}
+
+function canFinishSelectionPage(pageIndex) {
+  return state.selectedGridJobs.length >= requiredSelectionTotal(pageIndex);
+}
+
+function addJobToSelection(job) {
+  if (!job || state.selectedGridJobs.some(item => item.id === job.id)) {
+    toast('這張職業卡已經在入選池');
+    return;
+  }
+  state.selectedGridJobs.push(job);
+  state.likedJobs = [...state.selectedGridJobs];
+  $('likedCount').textContent = state.selectedGridJobs.length;
+  renderSelectionPage(state.selectionPage);
+  renderJobSearchPanel();
+  toast(`已加入：${job.title}`);
+}
+
 function renderSelectionPage(pageIndex = 0) {
   state.selectionPage = pageIndex;
   document.querySelector('.swipe-zone')?.classList.add('selection-mode');
   const jobs = state.selectionPages[pageIndex] || [];
   const pagePicked = selectedCountForPage(pageIndex);
+  const canContinue = canFinishSelectionPage(pageIndex);
   $('jobCursor').textContent = `第 ${pageIndex + 1}/2 輪`;
   $('likedCount').textContent = state.selectedGridJobs.length;
   $('jobCard').innerHTML = `
@@ -423,7 +516,8 @@ function renderSelectionPage(pageIndex = 0) {
   $('rejectBtn').style.display = 'none';
   $('likeBtn').style.display = 'none';
   $('finishSwipe').textContent = pageIndex === 0 ? '下一頁：再選 3 張' : '完成選秀，挑前三名';
-  $('finishSwipe').disabled = pagePicked < GRID_PICK_LIMIT;
+  $('finishSwipe').disabled = !canContinue;
+  renderJobSearchPanel();
 
   document.querySelectorAll('.draft-job').forEach(button => {
     button.addEventListener('click', () => toggleDraftJob(Number(button.dataset.jobId)));
@@ -447,8 +541,8 @@ function toggleDraftJob(jobId) {
 }
 
 function finishSelectionPage() {
-  if (selectedCountForPage(state.selectionPage) < GRID_PICK_LIMIT) {
-    toast('請先選滿 3 張職業卡');
+  if (!canFinishSelectionPage(state.selectionPage)) {
+    toast('請先選滿 3 張，或從全量職業池補進入選池');
     return;
   }
 
@@ -458,8 +552,44 @@ function finishSelectionPage() {
   }
 
   state.likedJobs = [...state.selectedGridJobs];
+  state.selectedTopJobs = [...state.selectedGridJobs];
   state.rankedJobs = [null, null, null];
   openStage('stage3');
+}
+
+function renderJobSearchPanel() {
+  const panel = $('jobSearchPanel');
+  if (!panel) return;
+  panel.hidden = !state.jobSearchOpen;
+  if (!state.jobSearchOpen) return;
+
+  const query = state.jobSearchQuery.trim().toLowerCase();
+  const matchedJobs = careerJobsData
+    .filter(job => {
+      if (!query) return true;
+      const text = `${job.title} ${job.majorCategory || ''} ${job.minorCategory || ''} ${job.displayCategory}`.toLowerCase();
+      return text.includes(query);
+    })
+    .slice(0, 60);
+
+  $('jobSearchInput').value = state.jobSearchQuery;
+  $('jobSearchResults').innerHTML = matchedJobs.map(job => {
+    const selected = state.selectedGridJobs.some(item => item.id === job.id);
+    return `
+      <button class="search-job ${selected ? 'selected' : ''}" data-job-id="${job.id}" ${selected ? 'disabled' : ''}>
+        <span class="mini-mark">${jobMark(job)}</span>
+        <strong>${escapeHtml(job.title)}</strong>
+        <small>${escapeHtml(job.majorCategory || '職業憧憬卡')} / ${escapeHtml(job.displayCategory)}</small>
+      </button>
+    `;
+  }).join('');
+
+  document.querySelectorAll('.search-job').forEach(button => {
+    button.addEventListener('click', () => {
+      const job = careerJobsData.find(item => item.id === Number(button.dataset.jobId));
+      addJobToSelection(job);
+    });
+  });
 }
 
 function renderLikedJobs() {
@@ -485,6 +615,7 @@ function rankJob(jobId) {
   state.rankedJobs.push(job);
   state.rankedJobs = state.rankedJobs.filter(Boolean).slice(0, 3);
   while (state.rankedJobs.length < 3) state.rankedJobs.push(null);
+  state.selectedTopJobs = state.rankedJobs.filter(Boolean);
   renderLikedJobs();
 }
 
@@ -501,6 +632,27 @@ function getOverlaps(job) {
     .filter(id => state.chosenValueIds.has(id))
     .map(id => careerValuesData.find(value => value.id === id))
     .filter(Boolean);
+}
+
+function getFuelMatch(job) {
+  const overlaps = getOverlaps(job);
+  const richCount = Array.isArray(job?.richValueId) ? job.richValueId.length : 0;
+  const percent = richCount ? Math.round((overlaps.length / richCount) * 100) : 0;
+  const categoryCounts = overlaps.reduce((acc, value) => {
+    acc[value.category] = (acc[value.category] || 0) + 1;
+    return acc;
+  }, {});
+  const focusCategory = Object.keys(categoryCounts).sort((a, b) => categoryCounts[b] - categoryCounts[a])[0] || state.maxCategory || job?.category || 'comfort';
+  const focusLabel = ATTR[focusCategory]?.label || '人生目標';
+  const matchedNames = overlaps.map(value => value.name).slice(0, 3);
+  const lead = percent >= 80 ? '燃料配對成功' : percent >= 45 ? '燃料正在接上' : '燃料還在暖機';
+  return {
+    percent,
+    lead,
+    focusLabel,
+    matchedNames,
+    text: `${lead}！此工作能提供 ${percent}% 燃料，滋養你想過的【${focusLabel}】生活！`
+  };
 }
 
 function renderSkillTree() {
@@ -528,12 +680,13 @@ function renderSkillTree() {
 
   $('skillTree').innerHTML = center + placed;
   const strategy = getCleanStrategySkill(first);
+  const fuel = getFuelMatch(first);
   if (overlaps.length) {
-    $('synergyText').textContent = `大成功！這份工作能滋養你渴望的「${overlaps.map(v => v.name).join('、')}」生活。已裝備特攻護盾：${strategy.gameName}`;
+    $('synergyText').textContent = `${fuel.text} 已裝備特攻護盾：${strategy.gameName}`;
   } else if (first.richValueId?.length) {
-    $('synergyText').textContent = '這張職業卡已有 richValueId，但和本次選出的價值沒有交集。可以作為諮詢討論點。';
+    $('synergyText').textContent = `${fuel.text} 目前命中的生涯卡較少，可以作為諮詢討論點。`;
   } else {
-    $('synergyText').textContent = '這張職業卡尚未匯入正式 richValueId。畫面先用本次生涯屬性做示意，補齊資料後會自動改成精準連線。';
+    $('synergyText').textContent = `${fuel.text} 這張職業卡尚未匯入正式 richValueId，先用本次生涯屬性做示意。`;
   }
 }
 
@@ -549,14 +702,20 @@ function buildReport(updateHash = true) {
   let iepListHtml = '';
   ranked.forEach((job, index) => {
     const finalStrategy = getTeacherStrategyText(job);
+    const fuel = getFuelMatch(job);
+    const matchedText = fuel.matchedNames.length ? `命中：${fuel.matchedNames.map(escapeHtml).join('、')}` : '尚未命中明確生涯卡，可作為討論起點';
     const categoryLabel = job.category ? job.category.toUpperCase() : 'UNCLASSIFIED';
     iepListHtml += `
-      <div class="iep-job-block" style="margin-bottom:20px;padding:15px;border-left:4px solid #00F5D4;background-color:rgba(255,255,255,0.03);border-radius:0 8px 8px 0;">
+      <div class="iep-job-block" style="margin-bottom:20px;padding:16px;border-left:4px solid #00F5D4;background-color:rgba(255,255,255,0.03);border-radius:0 8px 8px 0;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">
           <span style="color:#FF007F;font-weight:bold;font-size:14px;letter-spacing:1px;">MISSION ${index + 1}</span>
           <span style="color:#888;font-size:12px;">屬性標籤：${categoryLabel}</span>
         </div>
         <h3 style="color:#ffffff;margin:0 0 10px 0;font-size:20px;font-weight:600;">${escapeHtml(job.name || job.title)}</h3>
+        <div class="fuel-report" style="margin:0 0 12px 0;padding:10px 12px;border:1px solid rgba(0,245,212,.35);background:rgba(0,245,212,.08);">
+          <strong style="color:#00F5D4;font-size:18px;">人生目標滋養度 ${fuel.percent}%</strong>
+          <p style="color:#ffffff;margin:6px 0 0;font-size:14px;line-height:1.55;">${escapeHtml(fuel.text)} ${matchedText}</p>
+        </div>
         <p style="color:#E0E0E0;margin:0;font-size:15px;line-height:1.6;text-align:justify;">
           <strong style="color:#00F5D4;">轉銜授課策略：</strong>${escapeHtml(finalStrategy)}
         </p>
@@ -597,7 +756,7 @@ function drawRadar() {
   ctx.beginPath();
   keys.forEach((key, index) => {
     const angle = -Math.PI / 2 + index * Math.PI * 2 / keys.length;
-    const r = maxR * (state.scores[key] / QUIZ_TARGET_COUNT || 0.05);
+    const r = maxR * (state.scores[key] / chosenValueTotal() || 0.05);
     const x = cx + Math.cos(angle) * r;
     const y = cy + Math.sin(angle) * r;
     index ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
@@ -639,6 +798,19 @@ $('startSwipe').addEventListener('click', () => {
 $('rejectBtn').addEventListener('click', () => {});
 $('likeBtn').addEventListener('click', () => {});
 $('finishSwipe').addEventListener('click', finishSelectionPage);
+$('openJobSearch').addEventListener('click', () => {
+  state.jobSearchOpen = true;
+  renderJobSearchPanel();
+  $('jobSearchInput').focus();
+});
+$('closeJobSearch').addEventListener('click', () => {
+  state.jobSearchOpen = false;
+  renderJobSearchPanel();
+});
+$('jobSearchInput').addEventListener('input', event => {
+  state.jobSearchQuery = event.target.value;
+  renderJobSearchPanel();
+});
 $('buildReport').addEventListener('click', () => buildReport());
 $('copyIep').addEventListener('click', async () => {
   const text = iepText();
@@ -675,6 +847,11 @@ $('downloadReport').addEventListener('click', async () => {
 document.querySelectorAll('[data-stage-pill]').forEach(pill => {
   pill.addEventListener('click', () => {
     const stageId = pill.dataset.stagePill === '1' ? 'stage1' : pill.dataset.stagePill === '2' ? 'stage2' : 'stage3';
+    if (stageId === 'stage1') {
+      startCareerValueScreening();
+      showStage('stage1');
+      return;
+    }
     openStage(stageId);
   });
 });
@@ -691,7 +868,7 @@ window.addEventListener('hashchange', () => {
   else openStage(target, false);
 });
 
-generateDynamicCareerQuiz();
+startCareerValueScreening();
 if (location.hash) {
   const target = stageFromHash();
   if (target === 'reportStage') buildReport(false);

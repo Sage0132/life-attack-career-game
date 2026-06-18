@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=draft24a" />
+  <link rel="stylesheet" href="styles.css?v=sea1" />
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -21,13 +21,13 @@
       </div>
     </header>
     <nav class="stage-nav" aria-label="任務階段">
-      <button class="stage-pill active" data-stage-pill="1">01 生涯對決</button>
+      <button class="stage-pill active" data-stage-pill="1">01 生涯海選</button>
       <button class="stage-pill" data-stage-pill="2">02 職業選秀</button>
       <button class="stage-pill" data-stage-pill="3">03 特攻報告</button>
     </nav>
     <main>
       <section id="stage1" class="stage active" aria-labelledby="stage1Title">
-        <div class="arena-head"><div><span class="section-label">LEVEL 01</span><h2 id="stage1Title">迷因二選一</h2></div><div class="progress-box"><span id="quizCount">1/20</span><div class="progress-track"><div id="quizProgress" class="progress-fill"></div></div></div></div>
+        <div class="arena-head"><div><span class="section-label">LEVEL 01</span><h2 id="stage1Title">生涯卡海選</h2></div><div class="progress-box"><span id="quizCount">1/40</span><div class="progress-track"><div id="quizProgress" class="progress-fill"></div></div></div></div>
         <div class="duel-grid" id="duelGrid"></div>
       </section>
       <section id="reveal" class="stage reveal-stage" aria-labelledby="revealTitle">
@@ -36,7 +36,12 @@
       <section id="stage2" class="stage" aria-labelledby="stage2Title">
         <div class="arena-head compact-head"><div><span class="section-label">LEVEL 02</span><h2 id="stage2Title">職業選秀九宮格</h2></div><div class="swipe-stats"><span id="jobCursor">第 1/2 輪</span><span><b id="likedCount">0</b> 張已入選</span></div></div>
         <div class="swipe-zone"><button id="rejectBtn" class="round-command reject" aria-label="絕對不要">×</button><article id="jobCard" class="job-card" tabindex="0"></article><button id="likeBtn" class="round-command like" aria-label="好像滿酷">♥</button></div>
-        <div class="swipe-copy"><button id="finishSwipe" class="secondary-action">下一頁：再選 3 張</button></div>
+        <div class="swipe-copy"><button id="openJobSearch" class="summon-action">召喚全量職業自選 / 搜尋</button><button id="finishSwipe" class="secondary-action">下一頁：再選 3 張</button></div>
+        <section id="jobSearchPanel" class="job-search-panel" hidden>
+          <div class="job-search-head"><div><span class="section-label">FULL DECK</span><h3>全量職業自選池</h3></div><button id="closeJobSearch" class="secondary-action">收起</button></div>
+          <label class="job-search-box"><span>搜尋</span><input id="jobSearchInput" type="search" placeholder="輸入職稱、類別或關鍵字" autocomplete="off" /></label>
+          <div id="jobSearchResults" class="job-search-results"></div>
+        </section>
       </section>
       <section id="stage3" class="stage" aria-labelledby="stage3Title">
         <div class="arena-head"><div><span class="section-label">LEVEL 03</span><h2 id="stage3Title">前三志願與技能樹</h2></div><button id="buildReport" class="primary-action small">生成特攻履歷</button></div>
@@ -51,7 +56,7 @@
             <section class="report-block basic-block"><h3>特攻基本資料</h3><dl><div><dt>學生</dt><dd id="basicName">未命名隊員</dd></div><div><dt>施測日期</dt><dd id="basicDate"></dd></div><div><dt>主要稱號</dt><dd id="basicTitle"></dd></div></dl></section>
             <section class="report-block radar-block"><h3>四大生存屬性</h3><canvas id="radarCanvas" width="360" height="280" aria-label="四大屬性雷達圖"></canvas></section>
             <section class="report-block values-block"><h3>生涯價值連線</h3><div id="reportValues" class="report-values"></div></section>
-            <section class="report-block iep-block"><h3>特教老師專區</h3><ul id="iepList"></ul></section>
+            <section class="report-block iep-block"><h3>特教老師專區</h3><div id="iepList" class="iep-list"></div></section>
           </div>
         </article>
       </section>
@@ -59,7 +64,7 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="data/careerData.js?v=draft24a"></script>
-  <script src="app.js?v=draft24a"></script>
+  <script src="data/careerData.js?v=sea1"></script>
+  <script src="app.js?v=sea1"></script>
 </body>
 </html>
