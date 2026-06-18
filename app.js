@@ -564,11 +564,12 @@ function renderJobSearchPanel() {
   if (!state.jobSearchOpen) return;
 
   const query = state.jobSearchQuery.trim().toLowerCase();
+  const queryTerms = expandJobSearchTerms(query);
   const matchedJobs = careerJobsData
     .filter(job => {
       if (!query) return true;
       const text = `${job.title} ${job.majorCategory || ''} ${job.minorCategory || ''} ${job.displayCategory}`.toLowerCase();
-      return text.includes(query);
+      return queryTerms.some(term => text.includes(term));
     })
     .slice(0, 60);
 
@@ -590,6 +591,14 @@ function renderJobSearchPanel() {
       addJobToSelection(job);
     });
   });
+}
+
+function expandJobSearchTerms(query) {
+  if (!query) return [];
+  const terms = [query];
+  if (/司機|公車|開車|駕駛/.test(query)) terms.push('駕駛', '運輸', '宅配', '快遞', '貨運', '郵務', '水手', '船員');
+  if (/超商|便利|店員|收銀|門市/.test(query)) terms.push('門市', '銷售', '售貨', '服務', '餐飲', '櫃檯', '店');
+  return [...new Set(terms.map(term => term.toLowerCase()))];
 }
 
 function renderLikedJobs() {
