@@ -9,6 +9,7 @@ const ATTR = {
 };
 
 const BASELINE_JOB_IDS = [1, 2, 3, 19, 25, 27, 42, 46, 47, 84];
+const DEFAULT_VALUE_IDS = [40, 36, 24, 14, 35];
 const VALUE_FINAL_LIMIT = 10;
 const GRID_PAGE_SIZE = 12;
 const GRID_PICK_LIMIT = 3;
@@ -298,6 +299,7 @@ function startCareerValueScreening() {
   state.refiningValues = false;
   state.wantedValueIds.clear();
   state.chosenValueIds.clear();
+  state.lowFuelDialogOpen = false;
   state.scores = { comfort: 0, relationship: 0, expression: 0, achievement: 0 };
   state.filteredJobs = [];
   state.selectionPages = [[], []];
@@ -327,16 +329,19 @@ function renderCareerValueCard() {
       </span>
       <strong>${escapeHtml(text)}</strong>
       <small>${escapeHtml(value.name)}</small>
+      <p class="value-pick-count">目前已收集 ${state.wantedValueIds.size} 張人生燃料卡</p>
       <div class="value-actions">
         <button class="value-choice want" data-value-answer="want">這是我想要的</button>
         <button class="value-choice skip" data-value-answer="skip">這還好 / 不要</button>
       </div>
+      <button class="finish-values-now" id="finishValuesNow">燃料夠了，直接結算</button>
     </article>
   `;
 
   document.querySelectorAll('[data-value-answer]').forEach(button => {
     button.addEventListener('click', () => handleAnswer(button.dataset.valueAnswer === 'want', button));
   });
+  $('finishValuesNow').addEventListener('click', requestFlexibleFinish);
 }
 
 function handleAnswer(wantsValue, button) {
@@ -362,6 +367,50 @@ function resolveCareerValueScreening() {
     return;
   }
   finalizeCareerValues([...state.wantedValueIds]);
+}
+
+function requestFlexibleFinish() {
+  const chosenCount = state.wantedValueIds.size;
+  if (chosenCount < 3) {
+    renderLowFuelDialog();
+    return;
+  }
+  resolveCareerValueScreening();
+}
+
+function renderLowFuelDialog() {
+  if (document.querySelector('.low-fuel-dialog')) return;
+  const dialog = document.createElement('div');
+  dialog.className = 'low-fuel-dialog';
+  dialog.innerHTML = `
+    <div class="low-fuel-box">
+      <span class="section-label">LOW FUEL</span>
+      <h3>特攻隊長，基地燃料有點少</h3>
+      <p>目前只收集 ${state.wantedValueIds.size} 張生涯卡。可以再發掘 1、2 個隱藏超能力；如果想直接出發，系統會自動補上常態標配燃料，讓技能樹不會斷線。</p>
+      <div class="low-fuel-actions">
+        <button id="keepExploringValues" class="secondary-action">再探索幾張</button>
+        <button id="forceFinishValues" class="primary-action">直接出發，自動補燃料</button>
+      </div>
+    </div>
+  `;
+  $('duelGrid').appendChild(dialog);
+  $('keepExploringValues').addEventListener('click', () => dialog.remove());
+  $('forceFinishValues').addEventListener('click', () => {
+    autoFillMinimumValues();
+    dialog.remove();
+    resolveCareerValueScreening();
+  });
+}
+
+function autoFillMinimumValues() {
+  for (const id of DEFAULT_VALUE_IDS) {
+    if (state.wantedValueIds.size >= 3) break;
+    if (careerValuesData.some(value => value.id === id)) state.wantedValueIds.add(id);
+  }
+  for (const value of careerValuesData) {
+    if (state.wantedValueIds.size >= 3) break;
+    if (ATTR[value.category]) state.wantedValueIds.add(value.id);
+  }
 }
 
 function renderValueRefinement() {
