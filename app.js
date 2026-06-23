@@ -457,7 +457,7 @@ function renderValueRefinement() {
   $('duelGrid').innerHTML = `
     <section class="value-refine-panel">
       <div class="draft-head">
-        <span>想要池太滿了，請精選 10 張人生燃料</span>
+        <span>想要池太滿了，請精選你最在意的人生燃料（最多 10 張）</span>
         <b>${state.chosenValueIds.size}/${VALUE_FINAL_LIMIT}</b>
       </div>
       <div class="value-refine-grid">
@@ -469,7 +469,7 @@ function renderValueRefinement() {
           </button>
         `).join('')}
       </div>
-      <button id="finishValueRefine" class="primary-action" ${state.chosenValueIds.size === VALUE_FINAL_LIMIT ? '' : 'disabled'}>鎖定 10 張燃料卡</button>
+      <button id="finishValueRefine" class="primary-action" ${state.chosenValueIds.size > 0 ? '' : 'disabled'}>選好了，直接結算</button>
     </section>
   `;
 
@@ -477,8 +477,8 @@ function renderValueRefinement() {
     button.addEventListener('click', () => toggleRefineValue(Number(button.dataset.valueId)));
   });
   $('finishValueRefine').addEventListener('click', () => {
-    if (state.chosenValueIds.size !== VALUE_FINAL_LIMIT) {
-      toast('請先選滿 10 張人生燃料卡');
+    if (state.chosenValueIds.size === 0) {
+      toast('請至少選 1 張人生燃料卡');
       return;
     }
     finalizeCareerValues([...state.chosenValueIds]);
@@ -801,32 +801,6 @@ function buildReport(updateHash = true) {
   $('basicTitle').textContent = ATTR[top].title;
   const vals = careerValuesData.filter(value => state.chosenValueIds.has(value.id));
   $('reportValues').innerHTML = vals.slice(0, 18).map(value => `<span class="value-chip">${escapeHtml(value.name)}</span>`).join('');
-  const ranked = state.rankedJobs.filter(Boolean);
-  let iepListHtml = '';
-  ranked.forEach((job, index) => {
-    const finalStrategy = getTeacherStrategyText(job);
-    const fuel = getFuelMatch(job);
-    const categoryLabel = job.category ? job.category.toUpperCase() : 'UNCLASSIFIED';
-    const fuelBorder = fuel.percent > 0 ? '#00F5D4' : '#555';
-    const fuelColor = fuel.percent > 0 ? '#00F5D4' : '#FF007F';
-    iepListHtml += `
-      <div class="iep-job-block" style="margin-bottom:24px;padding:20px;border-left:4px solid #00F5D4;background:rgba(255,255,255,0.02);border-radius:0 12px 12px 0;">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;">
-          <span style="color:#FF007F;font-weight:bold;font-size:14px;letter-spacing:1px;">MISSION 0${index + 1}</span>
-          <span style="color:#00F5D4;font-size:12px;background:rgba(0,245,212,0.1);padding:2px 8px;border-radius:4px;">${categoryLabel} 特攻</span>
-        </div>
-        <h3 style="color:#ffffff;margin:0 0 12px 0;font-size:22px;font-weight:600;">${escapeHtml(job.name || job.title)}</h3>
-        <div class="fuel-report" style="background:rgba(255,255,255,0.04);padding:12px;border-radius:6px;margin-bottom:12px;border:1px solid ${fuelBorder};">
-          <strong style="color:${fuelColor};font-size:16px;">人生目標滋養度 ${fuel.percent}%</strong><br>
-          <p style="color:#DCCFEC;margin:6px 0 0 0;font-size:14px;line-height:1.4;">${escapeHtml(fuel.text)}</p>
-        </div>
-        <p style="color:#E0E0E0;margin:0;font-size:15px;line-height:1.6;text-align:justify;">
-          <strong style="color:#FF007F;">IEP 轉銜授課策略：</strong>${escapeHtml(finalStrategy)}
-        </p>
-      </div>
-    `;
-  });
-  $('iepList').innerHTML = iepListHtml || '<div class="iep-job-block">尚未選擇前三志願。</div>';
   drawRadar();
   showStage('reportStage', updateHash);
 }
@@ -919,21 +893,6 @@ $('jobSearchInput').addEventListener('input', event => {
   renderJobSearchPanel();
 });
 $('buildReport').addEventListener('click', () => buildReport());
-$('copyIep').addEventListener('click', async () => {
-  const text = iepText();
-  try {
-    if (navigator.clipboard) await navigator.clipboard.writeText(text);
-    else throw new Error('clipboard unavailable');
-  } catch (error) {
-    const area = document.createElement('textarea');
-    area.value = text;
-    document.body.appendChild(area);
-    area.select();
-    document.execCommand('copy');
-    area.remove();
-  }
-  toast('已複製 IEP 策略清單');
-});
 $('downloadReport').addEventListener('click', async () => {
   if (!window.html2canvas) {
     toast('html2canvas 尚未載入，請確認網路連線');

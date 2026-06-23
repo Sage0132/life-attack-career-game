@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=sea4" />
+  <link rel="stylesheet" href="styles.css?v=sea5" />
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -49,14 +49,13 @@
         <div class="selection-layout"><div><h3>入選職業池</h3><div id="likedJobs" class="liked-jobs"></div></div><div class="skill-tree-panel"><div id="skillTree" class="skill-tree"><div class="core-node">選擇第一志願</div></div><p id="synergyText" class="synergy-text">把職業放進第 1 志願後，會檢查 richValueId 與你的生涯價值是否相遇。</p></div></div>
       </section>
       <section id="reportStage" class="stage report-stage" aria-labelledby="reportTitle">
-        <div class="report-actions"><button id="copyIep" class="secondary-action">複製 IEP 策略清單</button><button id="downloadReport" class="primary-action">下載報告截圖</button></div>
+        <div class="report-actions"><button id="downloadReport" class="primary-action">下載報告截圖</button></div>
         <article id="missionReport" class="mission-report">
-          <header class="report-header"><div><span class="section-label">MISSION REPORT</span><h2 id="reportTitle">IEP 轉銜特攻履歷</h2></div><div class="report-id"><span id="reportName">未命名隊員</span><b id="reportDate"></b></div></header>
+          <header class="report-header"><div><span class="section-label">MISSION REPORT</span><h2 id="reportTitle">生涯特攻履歷</h2></div><div class="report-id"><span id="reportName">未命名隊員</span><b id="reportDate"></b></div></header>
           <div class="report-grid">
             <section class="report-block basic-block"><h3>特攻基本資料</h3><dl><div><dt>學生</dt><dd id="basicName">未命名隊員</dd></div><div><dt>施測日期</dt><dd id="basicDate"></dd></div><div><dt>主要稱號</dt><dd id="basicTitle"></dd></div></dl></section>
             <section class="report-block radar-block"><h3>四大生存屬性</h3><canvas id="radarCanvas" width="360" height="280" aria-label="四大屬性雷達圖"></canvas></section>
             <section class="report-block values-block"><h3>生涯價值連線</h3><div id="reportValues" class="report-values"></div></section>
-            <section class="report-block iep-block"><h3>特教老師專區</h3><div id="iepList" class="iep-list"></div></section>
           </div>
         </article>
       </section>
@@ -64,7 +63,7 @@
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="data/careerData.js?v=sea4"></script>
-  <script src="app.js?v=sea4"></script>
+  <script src="data/careerData.js?v=sea5"></script>
+  <script src="app.js?v=sea5"></script>
 </body>
 </html>
